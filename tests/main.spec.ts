@@ -1,5 +1,5 @@
 import { expect } from './chai';
-import { ImplementClass } from '../lib/index';
+import { ImplementClass } from '../src/index';
 
 describe('TypeScript library skeleton:', function () {
 	it('should be able to call myFunc on a new instance', async function () {
