@@ -1,0 +1,25 @@
+{
+  "tests": [
+    {
+      "it": "Generates a log",
+      "events": [
+        {
+          "trigger": "pull_request_opened",
+          "inputs": {
+            "working_directory": "/tmp/docker-project"
+          },
+          "test": [
+            "Geneate CHANGELOG"
+          ],
+          "steps": {
+            "expensive-function": {
+              "outputs": {
+                "BRUH": 5
+              }
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

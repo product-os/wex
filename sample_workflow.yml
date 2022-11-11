@@ -1,0 +1,13 @@
+name: run-local
+on: push
+jobs:
+  my-job:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Do thing
+        id: expensive-function
+        run: |
+          echo "potato"
+      - name: Get expensive computation
+        if: steps.expensive-function.outputs.BRUH == '5'
+        run: echo "The output is ${{ steps.expensive-function.outputs.BRUH }}"

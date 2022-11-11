@@ -2,6 +2,29 @@
 
 Make testing workflow changes easier by running them locally, without side effects, and verifying what happened.
 
+```
+  __      __
+ /  \    /  \ ____ ___  ___
+ \   \/\/   // __ \\  \/  /
+  \        /\  ___/ >    <
+   \__/\  /  \___  >__/\_ \
+        \/       \/      \/
+Usage:
+  wex.sh [--options] [--arguments]
+  wex.sh -w .github/workflows/flowzone.yml -c tests/wex.json --verbose
+  wex.sh --version
+
+Options:
+  -h --help      Display this help information.
+  -D --debug     Log additional information to see what Wex is doing.
+  --verbose      Make Workflow runner log more information.
+
+Arguments:
+  -w --workflow  Workflow to use.
+  -c --config    Config file with experiments.
+  --version      Print version.
+```
+
 ## How
 
 By using [act](https://github.com/nektos/act) to run the workflow, we can use the same runner that Github uses to evaluate a Workflow file. By modifying your workflow to run in a "dryrun" mode by replacing all the steps with logs, we can than check what steps would have ran given an input/event.
