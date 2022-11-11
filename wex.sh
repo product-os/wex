@@ -213,7 +213,7 @@ _print_help() {
 	cat <<HEREDOC
 Usage:
   ${_ME} [--options] [--arguments]
-  ${_ME} -w .github/workflows/flowzone.yml -c tests/wex.json --verbose
+  ${_ME} -w workflow.yml -c wex.json --verbose
   ${_ME} --version 
 
 Options:
