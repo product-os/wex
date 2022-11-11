@@ -11,7 +11,7 @@ Make testing workflow changes easier by running them locally, without side effec
         \/       \/      \/
 Usage:
   wex.sh [--options] [--arguments]
-  wex.sh -w .github/workflows/flowzone.yml -c tests/wex.json --verbose
+  wex.sh -w workflow.yml -c wex.json --verbose
   wex.sh --version
 
 Options:
