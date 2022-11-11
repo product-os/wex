@@ -322,9 +322,25 @@ done
 
 _wex() {
 	_debug printf "Wex is starting..."
+	# Loop over each test
+	yq -c '.tests[]' config.json | while read -r t; do
+		# Loop over each event
+		echo "$_OPTION_W"
+		echo "$_OPTION_C"
+		# echo "$t" | yq '.events[].trigger' | while read -r e; do
+		# 	# (1) create input file
+		# 	_create_input "$e"
+		# 	# (2) create tmp workflow
+		# 	_cp_workflow "$e"
+		# 	# (3) call act with right event
+		# 	_run_act "$e"
+		# done
+	done
 }
 
 _mod_step_run() {
+	# echo "set-output name=KEY::VALUE"
+	# echo "::set-output name=KEY::VALUE"
 	_debug printf "Modifying steps run step"
 }
 
@@ -338,6 +354,13 @@ _run_act() {
 
 _cp_workflow() {
 	_debug printf "Copying workflow..."
+	# Make a tmp directory to store modified workflow
+	workflow_directory=$(mktemp -d)
+	# Copy provided workflow to tmp directory
+	# shellcheck disable=2154
+	cp "$_OPTION_W" workflow_directory
+	# Cleanup after...
+	rm -r "$workflow_directory"
 }
 
 ###############################################################################

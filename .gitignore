@@ -99,3 +99,7 @@ dist
 
 # TernJS port file
 .tern-port
+
+# Ignore sample files used for development
+sample_workflow.yml
+sample_config.json
