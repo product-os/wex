@@ -322,54 +322,50 @@ done
 _wex() {
 	_debug printf "Wex trying \`${_OPTION_W}\` with config \`${_OPTION_C}\`"
 	# Loop over each test
-	yq -c '.tests[]' "$_OPTION_C" | while read -r t; do
-		# Loop over each event
-		echo "$t" | yq -c '.events[]' | while read -r event; do
-			# (1) create input file
-			_create_input
+	yq -c '.experiments[]' "$_OPTION_C" | while read -r e; do
+		# (1) create input file
+		_create_input
 
-			# (2) create tmp workflow
-			tmp_workflow=$(_cp_workflow)
+		# (2) create tmp workflow
+		tmp_workflow=$(_cp_workflow)
 
-			# (3) modify workflow so that steps do not run
-			_mod_step_run "$tmp_workflow"
+		# (3) modify workflow so that steps do not run
+		_mod_step_run "$tmp_workflow"
 
-			# (4) call act with event in directory with modified workflow
-			logs=""
-			if ((_VERBOSE)); then
-				logs=$(act -v push -W "$tmp_workflow")
-			else
-				logs=$(act push -W "$tmp_workflow")
+		# (4) call act with event in directory with modified workflow
+		logs=""
+		event="$(echo "$e" | yq -c '.story.event' | tr -d '\"')"
+		if ((_VERBOSE)); then
+			logs=$(act -v "$event" -W "$tmp_workflow")
+		else
+			logs=$(act "$event" -W "$tmp_workflow")
+		fi
+
+		# Cleanup tmp workflow
+		rm -r "$tmp_workflow"
+
+		# (5) test logs for expected text
+		pass=1
+		while read -r test; do
+			if ! echo "$logs" | grep -q "$(echo "$test" | tr -d '\"')"; then
+				# Fail if a single test does not pass
+				pass=0
 			fi
+		done < <(echo "$e" | yq -c '.story.tests[]')
 
-			# Cleanup tmp workflow
-			rm -r "$tmp_workflow"
-
-			# (5) test logs for expected text
-			pass=1
-			while read -r test; do
-				if ! echo "$logs" | grep -q "$(echo "$test" | tr -d '\"')"; then
-					# Fail if a single test does not pass
-					pass=0
-				fi
-			done < <(echo "$event" | yq -c '.tests[]')
-
-			if ((pass)); then
-				echo "✔ Tests passed!"
-				exit 0
-			else
-				_exit_1 echo "Tests failed!"
-			fi
-		done
+		# (6) check that all tests pass
+		if ((pass)); then
+			echo "✔ Tests passed!"
+			exit 0
+		else
+			_exit_1 echo "Tests failed!"
+		fi
 	done
 }
 
 _mod_step_run() {
-	# echo "$event" | yq -c '.steps'
-
 	_debug printf "Modifying steps run"
 
-	# TODO: actually update step runs dynamically
 	yq -iy '.jobs[].steps[0].run = "echo set-output name=COMPUTED::5 && echo ::set-output name=COMPUTED::5"' \
 		"$1/$_OPTION_W"
 }

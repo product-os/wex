@@ -1,25 +1,23 @@
 {
-  "tests": [
+  "experiments": [
     {
       "it": "Logs expensive computation when it is equal to 5",
-      "events": [
-        {
-          "trigger": "push",
-          "inputs": {
-            "working_directory": "/tmp/docker-project"
-          },
-          "tests": [
-            "Get expensive computation"
-          ],
-          "steps": {
-            "expensive-function": {
-              "outputs": {
-                "COMPUTED": 5
-              }
+      "story": {
+        "event": "push",
+        "inputs": {
+          "working_directory": "/tmp/docker-project"
+        },
+        "tests": [
+          "Get expensive computation"
+        ],
+        "steps": {
+          "expensive-function": {
+            "outputs": {
+              "COMPUTED": 5
             }
           }
         }
-      ]
+      }
     }
   ]
 }
