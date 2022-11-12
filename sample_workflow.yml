@@ -7,7 +7,7 @@ jobs:
       - name: Do thing
         id: expensive-function
         run: |
-          echo "potato"
+          echo 'expensive-function'
       - name: Get expensive computation
         if: steps.expensive-function.outputs.COMPUTED == '5'
         run: echo "The output is ${{ steps.expensive-function.outputs.COMPUTED}}"

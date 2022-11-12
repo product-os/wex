@@ -324,8 +324,7 @@ _wex() {
 	# Loop over each test
 	yq -c '.tests[]' "$_OPTION_C" | while read -r t; do
 		# Loop over each event
-		echo "$t" | yq -c '.events[]' | while read -r _; do
-
+		echo "$t" | yq -c '.events[]' | while read -r event; do
 			# (1) create input file
 			_create_input
 
@@ -347,12 +346,19 @@ _wex() {
 			rm -r "$tmp_workflow"
 
 			# (5) test logs for expected text
-			# TODO: actually get test text isntead of hardcode
-			if echo "$logs" | grep -q "Get expensive computation"; then
-				printf "Tests passed!"
+			pass=1
+			while read -r test; do
+				if ! echo "$logs" | grep -q "$(echo "$test" | tr -d '\"')"; then
+					# Fail if a single test does not pass
+					pass=0
+				fi
+			done < <(echo "$event" | yq -c '.tests[]')
+
+			if ((pass)); then
+				echo "✔ Tests passed!"
 				exit 0
 			else
-				_exit_1 printf "Tests failed!"
+				_exit_1 echo "Tests failed!"
 			fi
 		done
 	done

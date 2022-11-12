@@ -1,15 +1,15 @@
 {
   "tests": [
     {
-      "it": "Generates a log",
+      "it": "Logs expensive computation when it is equal to 5",
       "events": [
         {
           "trigger": "push",
           "inputs": {
             "working_directory": "/tmp/docker-project"
           },
-          "test": [
-            "Geneate CHANGELOG"
+          "tests": [
+            "Get expensive computation"
           ],
           "steps": {
             "expensive-function": {
