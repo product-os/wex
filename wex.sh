@@ -132,10 +132,9 @@ _debug() {
 	if ((${_USE_DEBUG:-0})); then
 		__DEBUG_COUNTER=$((__DEBUG_COUNTER + 1))
 		{
-			# Prefix debug message with "bug (U+1F41B)"
-			printf "🐛  %s " "${__DEBUG_COUNTER}"
+			printf "[DEBUG] "
 			"${@}"
-			printf "―――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――\\n"
+			printf "\\n"
 		} 1>&2
 	fi
 }
@@ -255,8 +254,8 @@ _VERBOSE=0
 _USE_DEBUG=0
 
 # Initialize additional expected argument variables.
-_OPTION_W=0
-_OPTION_C=0
+_OPTION_W=
+_OPTION_C=
 _PRINT_VERSION=0
 
 # __get_option_value()
@@ -321,46 +320,77 @@ done
 ###############################################################################
 
 _wex() {
-	_debug printf "Wex is starting..."
+	_debug printf "Wex trying \`${_OPTION_W}\` with config \`${_OPTION_C}\`"
 	# Loop over each test
-	yq -c '.tests[]' config.json | while read -r t; do
+	yq -c '.tests[]' "$_OPTION_C" | while read -r t; do
 		# Loop over each event
-		echo "$_OPTION_W"
-		echo "$_OPTION_C"
-		# echo "$t" | yq '.events[].trigger' | while read -r e; do
-		# 	# (1) create input file
-		# 	_create_input "$e"
-		# 	# (2) create tmp workflow
-		# 	_cp_workflow "$e"
-		# 	# (3) call act with right event
-		# 	_run_act "$e"
-		# done
+		echo "$t" | yq -c '.events[]' | while read -r _; do
+
+			# (1) create input file
+			_create_input
+
+			# (2) create tmp workflow
+			tmp_workflow=$(_cp_workflow)
+
+			# (3) modify workflow so that steps do not run
+			_mod_step_run "$tmp_workflow"
+
+			# (4) call act with event in directory with modified workflow
+			logs=""
+			if ((_VERBOSE)); then
+				logs=$(act -v push -W "$tmp_workflow")
+			else
+				logs=$(act push -W "$tmp_workflow")
+			fi
+
+			# Cleanup tmp workflow
+			rm -r "$tmp_workflow"
+
+			# (5) test logs for expected text
+			# TODO: actually get test text isntead of hardcode
+			if echo "$logs" | grep -q "Get expensive computation"; then
+				printf "Tests passed!"
+				exit 0
+			else
+				_exit_1 printf "Tests failed!"
+			fi
+		done
 	done
 }
 
 _mod_step_run() {
-	# echo "set-output name=KEY::VALUE"
-	# echo "::set-output name=KEY::VALUE"
-	_debug printf "Modifying steps run step"
+	# echo "$event" | yq -c '.steps'
+
+	_debug printf "Modifying steps run"
+
+	# TODO: actually update step runs dynamically
+	yq -iy '.jobs[].steps[0].run = "echo set-output name=COMPUTED::5 && echo ::set-output name=COMPUTED::5"' \
+		"$1/$_OPTION_W"
 }
 
 _create_input() {
-	_debug printf "Making input file..."
+	_debug printf "Making input file"
 }
 
 _run_act() {
-	_debug printf "Running act..."
+	if ((_VERBOSE)); then
+		_debug printf "EXECUTING: \`act -v $1 -W $2\`"
+		act -v push -W "$2"
+	else
+		_debug printf "EXECUTING: \`act $1 -W $2\`"
+		act push -W "$2"
+	fi
 }
 
 _cp_workflow() {
-	_debug printf "Copying workflow..."
 	# Make a tmp directory to store modified workflow
 	workflow_directory=$(mktemp -d)
+	_debug printf "Created tmp workflow directory: \`%s\`" "$workflow_directory"
 	# Copy provided workflow to tmp directory
+	_debug printf "Making a copy of %s in %s" "$_OPTION_W" "$workflow_directory"
 	# shellcheck disable=2154
-	cp "$_OPTION_W" workflow_directory
-	# Cleanup after...
-	rm -r "$workflow_directory"
+	cp "$_OPTION_W" "$workflow_directory"
+	echo "$workflow_directory"
 }
 
 ###############################################################################
@@ -373,12 +403,16 @@ _main() {
 	elif ((_PRINT_VERSION)); then
 		_print_version
 	else
-		# Make sure the require arguments are set
-		if ((_OPTION_W)); then
+		# Make sure the required arguments are set and valid
+		if [ -z "$_OPTION_W" ]; then
 			_exit_1 printf "Missing workflow argument. See --help."
+		elif [ ! -f "$_OPTION_W" ]; then
+			_exit_1 printf "Workflow file '${_OPTION_W}' does not exists."
 		fi
-		if ((_OPTION_C)); then
+		if [ -z "$_OPTION_C" ]; then
 			_exit_1 printf "Missing config argument. See --help."
+		elif [ ! -f "$_OPTION_C" ]; then
+			_exit_1 printf "Config file '${_OPTION_C}' does not exists."
 		fi
 		# Run the show
 		_wex "$@"
