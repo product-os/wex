@@ -371,7 +371,7 @@ _wex() {
 _test_experiment() {
 	pass=1
 	while read -r test; do
-		if ! echo "$1" | grep -q "$(echo "$test" | tr -d '\"')"; then
+		if ! echo "$1" | grep -q "$(echo "⭐ Run Main $test" | tr -d '\"')"; then
 			# Fail if a single test does not pass
 			pass=0
 		fi
