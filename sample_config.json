@@ -8,17 +8,15 @@
           "logDirectory": true,
           "working_directory": "/tmp/docker-project"
         },
+        "outputs": {
+          "expensive-function": {
+            "COMPUTED": 5
+          }
+        },
         "tests": [
           "Get expensive computation",
           "Log directory"
-        ],
-        "steps": {
-          "expensive-function": {
-            "outputs": {
-              "COMPUTED": 5
-            }
-          }
-        }
+        ]
       }
     }
   ]
