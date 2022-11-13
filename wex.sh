@@ -321,50 +321,53 @@ done
 
 _wex() {
 	_debug printf "Wex trying \`${_OPTION_W}\` with config \`${_OPTION_C}\`"
-	# Loop over each test
+	# Loop over each experiment in config
 	yq -c '.experiments[]' "$_OPTION_C" | while read -r experiment; do
-		# (1) create input file
-		_create_input
+		# (1) create tmp workflow
+		tmp_directory=$(_cp_workflow)
 
-		# (2) create tmp workflow
-		tmp_workflow=$(_cp_workflow)
+		# (2) create inputs file
+		tmp_inputs=
+		inputs=$(echo "$experiment" | yq -c '.story.inputs')
+		if ! [ "$inputs" = "null" ]; then
+			_debug printf "Creating inputs file from config inputs"
+			tmp_inputs=$(_create_input "$tmp_directory" "$inputs")
+		fi
 
 		# (3) modify workflow so that steps do not run
-		_mod_step_run "${tmp_workflow}/${_OPTION_W}" "$experiment"
+		_mod_step_run "${tmp_directory}/${_OPTION_W}" "$experiment"
 
-		# (4) call act with event in directory with modified workflow
-		logs=""
-		event="$(echo "$experiment" | yq -c '.story.event' | tr -d '\"')"
-		if ((_VERBOSE)); then
-			logs=$(act -v "$event" -W "$tmp_workflow")
-		else
-			logs=$(act "$event" -W "$tmp_workflow")
-		fi
+		# (4) call act
+		logs=$(_run_act "$(echo "$experiment" | yq -c '.story.event' | tr -d '\"')" "$tmp_directory" "$tmp_inputs")
 
 		# Cleanup tmp workflow
-		rm -r "$tmp_workflow"
+		rm -r "$tmp_directory"
 
 		# (5) test logs for expected text
-		pass=1
-		while read -r test; do
-			if ! echo "$logs" | grep -q "$(echo "$test" | tr -d '\"')"; then
-				# Fail if a single test does not pass
-				pass=0
-			fi
-		done < <(echo "$experiment" | yq -c '.story.tests[]')
-
-		# (6) check that all tests pass
-		if ((pass)); then
-			echo "✔ Tests passed"
-			exit 0
-		else
-			_exit_1 echo "Tests failed"
-		fi
+		_test_logs "$logs" "$experiment"
 	done
 }
 
+_test_logs() {
+	pass=1
+	while read -r test; do
+		if ! echo "$1" | grep -q "$(echo "$test" | tr -d '\"')"; then
+			# Fail if a single test does not pass
+			pass=0
+		fi
+	done < <(echo "$2" | yq -c '.story.tests[]')
+
+	# check that all tests pass
+	if ((pass)); then
+		echo "✔ Tests passed"
+		exit 0
+	else
+		_exit_1 echo "Tests failed"
+	fi
+}
+
 _mod_step_run() {
-	_debug printf "Modifying steps run"
+	_debug printf "Modifying steps in $1"
 
 	echo "$2" | yq -c '.story.steps | keys[]' | while read -r step; do
 		target_step_id=$(echo "$step" | tr -d '"')
@@ -389,17 +392,23 @@ _set_output() {
 }
 
 _create_input() {
-	_debug printf "Making input file"
+	echo "{ \"inputs\": {} }" | yq -j "(.inputs) = $2" >"$1/inputs.json"
+	echo "$1/inputs.json"
 }
 
 _run_act() {
+	# TODO: pass secrets from .env file as `-s KEY=VALUE` args to act
+	args="$1 -W $2"
 	if ((_VERBOSE)); then
-		_debug printf "EXECUTING: \`act -v $1 -W $2\`"
-		act -v push -W "$2"
-	else
-		_debug printf "EXECUTING: \`act $1 -W $2\`"
-		act push -W "$2"
+		_debug printf "Adding verbose flag to act"
+		args=" -v $args"
 	fi
+	if [[ -n "$3" ]]; then
+		_debug printf "Passing input file to act"
+		args=" -e $3 $args"
+	fi
+	_debug printf "Starting act with args \'$args\'"
+	eval act "$args"
 }
 
 _cp_workflow() {

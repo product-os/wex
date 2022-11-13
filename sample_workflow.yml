@@ -10,4 +10,8 @@ jobs:
           echo 'expensive-function'
       - name: Get expensive computation
         if: steps.expensive-function.outputs.COMPUTED == '5'
-        run: echo "The output is ${{ steps.expensive-function.outputs.COMPUTED}}"
+        run: echo "The output is ${{ steps.expensive-function.outputs.COMPUTED }}"
+      - name: Log directory
+        if: github.event.inputs.logDirectory == true
+        run: |
+          echo "working_directory -> ${{ github.event.inputs.working_directory }}"

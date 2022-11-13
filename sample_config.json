@@ -5,10 +5,12 @@
       "story": {
         "event": "push",
         "inputs": {
+          "logDirectory": true,
           "working_directory": "/tmp/docker-project"
         },
         "tests": [
-          "Get expensive computation"
+          "Get expensive computation",
+          "Log directory"
         ],
         "steps": {
           "expensive-function": {
