@@ -321,12 +321,13 @@ done
 
 _wex() {
 	_debug printf "Wex trying \`${_OPTION_W}\` with config \`${_OPTION_C}\`"
+	fails=0
+	tmp_directory=$(_cp_workflow)
+	total=$(yq -c '.experiments | length' "$_OPTION_C")
+	_debug printf "Found $total experiments to test"
 	# Loop over each experiment in config
-	yq -c '.experiments[]' "$_OPTION_C" | while read -r experiment; do
-		# (1) create tmp workflow
-		tmp_directory=$(_cp_workflow)
-
-		# (2) create inputs file
+	while read -r experiment; do
+		# (1) create inputs file
 		tmp_inputs=
 		inputs=$(echo "$experiment" | yq -c '.story.inputs')
 		if ! [ "$inputs" = "null" ]; then
@@ -334,21 +335,32 @@ _wex() {
 			tmp_inputs=$(_create_input "$tmp_directory" "$inputs")
 		fi
 
-		# (3) modify workflow so that steps do not run
+		# (2) modify workflow so that steps do not run
 		_mod_step_run "${tmp_directory}/${_OPTION_W}" "$experiment"
 
-		# (4) call act
+		# (3) call act
 		logs=$(_run_act "$(echo "$experiment" | yq -c '.story.event' | tr -d '\"')" "$tmp_directory" "$tmp_inputs")
 
-		# Cleanup tmp workflow
-		rm -r "$tmp_directory"
+		# (4) test logs for expected text
+		if ! _test_experiment "$logs" "$experiment"; then
+			_debug printf "Failed experiment, incrementing fails!"
+			((fails = fails + 1))
+		fi
+	done < <(yq -c '.experiments[]' "$_OPTION_C")
 
-		# (5) test logs for expected text
-		_test_logs "$logs" "$experiment"
-	done
+	# Cleanup tmp workflow
+	rm -r "$tmp_directory"
+
+	# Check results!
+	if ! ((fails)); then
+		echo "== $total/$total EXPERIMENTS PASSED =="
+		exit 0
+	else
+		_exit_1 echo " - $fails/$total EXPERIMENTS FAILED!"
+	fi
 }
 
-_test_logs() {
+_test_experiment() {
 	pass=1
 	while read -r test; do
 		if ! echo "$1" | grep -q "$(echo "$test" | tr -d '\"')"; then
@@ -358,11 +370,13 @@ _test_logs() {
 	done < <(echo "$2" | yq -c '.story.tests[]')
 
 	# check that all tests pass
+	title=$(echo "$2" | yq -c '.it')
 	if ((pass)); then
-		echo "✔ Tests passed"
-		exit 0
+		echo "$title - ✔ PASSED"
+		return 0
 	else
-		_exit_1 echo "Tests failed"
+		echo "$title - ⚠ FAILED"
+		return 1
 	fi
 }
 
@@ -404,7 +418,6 @@ _run_act() {
 		args=" -v $args"
 	fi
 	if [[ -n "$3" ]]; then
-		_debug printf "Passing input file to act"
 		args=" -e $3 $args"
 	fi
 	_debug printf "Starting act with args \'$args\'"
@@ -414,7 +427,6 @@ _run_act() {
 _cp_workflow() {
 	# Make a tmp directory to store modified workflow
 	workflow_directory=$(mktemp -d)
-	_debug printf "Created tmp workflow directory: \`%s\`" "$workflow_directory"
 	# Copy provided workflow to tmp directory
 	_debug printf "Making a copy of %s in %s" "$_OPTION_W" "$workflow_directory"
 	# shellcheck disable=2154
