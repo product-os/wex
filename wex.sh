@@ -350,9 +350,14 @@ _wex() {
 		fi
 
 		# (4) test logs for expected text
-		if ! _test_experiment "$logs" "$experiment"; then
+		title=$(echo "$experiment" | yq -c '.it')
+		tests=$(echo "$experiment" | yq -c '.story.tests[]')
+		if ! _test_experiment "$logs" "$tests"; then
+			echo "$title - ⚠ FAILED"
 			_debug printf "Failed experiment, incrementing fails!"
 			((fails = fails + 1))
+		else
+			echo "$title - ✔ PASSED"
 		fi
 	done < <(yq -c '.experiments[]' "$_OPTION_C")
 
@@ -375,15 +380,12 @@ _test_experiment() {
 			# Fail if a single test does not pass
 			pass=0
 		fi
-	done < <(echo "$2" | yq -c '.story.tests[]')
+	done < <(echo "$2")
 
 	# check that all tests pass
-	title=$(echo "$2" | yq -c '.it')
 	if ((pass)); then
-		echo "$title - ✔ PASSED"
 		return 0
 	else
-		echo "$title - ⚠ FAILED"
 		return 1
 	fi
 }
