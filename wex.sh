@@ -363,19 +363,25 @@ _wex() {
 	done
 }
 
-# TODO: support mod uses in step
 _mod_step_run() {
 	_debug printf "Modifying steps run"
 
 	echo "$2" | yq -c '.story.steps | keys[]' | while read -r step; do
-		echo "$2" | yq -c ".story.steps.${step}.outputs | keys[0]" | while read -r output_key; do
+		target_step_id=$(echo "$step" | tr -d '"')
+		override=""
+		while read -r output_key; do
 			key=$(echo "$output_key" | tr -d '"')
 			value=$(echo "$2" | yq -c ".story.steps.${step}.outputs.${output_key}")
-			target_step_id=$(echo "$step" | tr -d '"')
-			override=$(printf "echo ::set-output name=%s::%s" "$key" "$value")
-			yq -iy "(.jobs[].steps[] | select(.id == \"${target_step_id}\") | .run) = \"${override}\"" "$1"
-		done
+			override="${override}\n$(_set_output "$key" "$value")"
+		done < <(echo "$2" | yq -c ".story.steps.${step}.outputs | keys[]")
+		yq -iy "(.jobs[].steps[] | select(.id == \"${target_step_id}\") | .run) = \"${override}\"" "$1"
 	done
+}
+
+_set_output() {
+	key="$1"
+	value=$(echo "$2" | tr -d '"') # escape quotes around strings
+	printf "echo ::set-output name=%s::%s" "$key" "$value"
 }
 
 _create_input() {
