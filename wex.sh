@@ -369,11 +369,15 @@ _mod_step_run() {
 	echo "$2" | yq -c '.story.steps | keys[]' | while read -r step; do
 		target_step_id=$(echo "$step" | tr -d '"')
 		override=""
+		# build string of echos to set output in step.run
 		while read -r output_key; do
 			key=$(echo "$output_key" | tr -d '"')
 			value=$(echo "$2" | yq -c ".story.steps.${step}.outputs.${output_key}")
 			override="${override}\n$(_set_output "$key" "$value")"
 		done < <(echo "$2" | yq -c ".story.steps.${step}.outputs | keys[]")
+		# delete 'uses' on step if set
+		yq -iy "del(.jobs[].steps[] | select(.id == \"${target_step_id}\") | .uses)" "$1"
+		# set existing or add new 'run' to just echo outputs
 		yq -iy "(.jobs[].steps[] | select(.id == \"${target_step_id}\") | .run) = \"${override}\"" "$1"
 	done
 }
