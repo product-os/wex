@@ -2,8 +2,7 @@
   "experiments": [
     {
       "it": "Logs expensive computation when it is equal to 5",
-      "story": {
-        "event": "push",
+      "push": {
         "inputs": {
           "logDirectory": true,
           "working_directory": "/tmp/docker-project"

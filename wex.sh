@@ -331,19 +331,21 @@ _wex() {
 	_debug printf "Found $total experiments to test"
 	# Loop over each experiment in config
 	while read -r experiment; do
+		# Get the webhook event
+		event=$(echo "$experiment" | yq -c 'with_entries(select(.key != "it")) | keys[]' | tr -d '\"')
 		# (1) create inputs file
 		tmp_inputs=
-		inputs=$(echo "$experiment" | yq -c '.story.inputs')
+		inputs=$(echo "$experiment" | yq -c ".$event.inputs")
 		if ! [ "$inputs" = "null" ]; then
 			_debug printf "Creating inputs file from config inputs"
 			tmp_inputs=$(_create_input "$tmp_directory" "$inputs")
 		fi
 
 		# (2) modify workflow so that steps do not run
-		_mod_step_run "${tmp_directory}/${_OPTION_W}" "$experiment"
+		_mod_step_run "${tmp_directory}/${_OPTION_W}" "$(echo "$experiment" | yq -c ".$event.outputs")"
 
 		# (3) call act
-		logs=$(_run_act "$(echo "$experiment" | yq -c '.story.event' | tr -d '\"')" "$tmp_directory" "$tmp_inputs")
+		logs=$(_run_act "$event" "$tmp_directory" "$tmp_inputs")
 
 		if ((_LOG_WORKFLOW)); then
 			echo "$logs"
@@ -351,7 +353,7 @@ _wex() {
 
 		# (4) test logs for expected text
 		title=$(echo "$experiment" | yq -c '.it')
-		tests=$(echo "$experiment" | yq -c '.story.tests[]')
+		tests=$(echo "$experiment" | yq -c ".$event.tests[]")
 		if ! _test_experiment "$logs" "$tests"; then
 			echo "$title - ⚠ FAILED"
 			_debug printf "Failed experiment, incrementing fails!"
@@ -393,15 +395,15 @@ _test_experiment() {
 _mod_step_run() {
 	_debug printf "Modifying steps in $1"
 
-	echo "$2" | yq -c '.story.outputs | keys[]' | while read -r step; do
+	echo "$2" | yq -c "keys[]" | while read -r step; do
 		target_step_id=$(echo "$step" | tr -d '"')
 		override=""
 		# build string of echos to set output in step.run
 		while read -r output_key; do
 			key=$(echo "$output_key" | tr -d '"')
-			value=$(echo "$2" | yq -c ".story.outputs.${step}.${output_key}")
+			value=$(echo "$2" | yq -c ".${step}.${output_key}")
 			override="${override}\n$(_set_output "$key" "$value")"
-		done < <(echo "$2" | yq -c ".story.outputs.${step} | keys[]")
+		done < <(echo "$2" | yq -c ".${step} | keys[]")
 		# delete 'uses' on step if set
 		yq -iy "del(.jobs[].steps[] | select(.id == \"${target_step_id}\") | .uses)" "$1"
 		# set existing or add new 'run' to just echo outputs
