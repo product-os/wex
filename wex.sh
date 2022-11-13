@@ -251,6 +251,7 @@ HEREDOC
 # Initialize program option variables.
 _PRINT_HELP=1
 _VERBOSE=0
+_LOG_WORKFLOW=0
 _USE_DEBUG=0
 
 # Initialize additional expected argument variables.
@@ -290,6 +291,9 @@ while ((${#})); do
 		;;
 	--debug)
 		_USE_DEBUG=1
+		;;
+	--logs)
+		_LOG_WORKFLOW=1
 		;;
 	-w | --workflow)
 		_OPTION_W="$(__get_option_value "${__arg}" "${__val:-}")"
@@ -340,6 +344,10 @@ _wex() {
 
 		# (3) call act
 		logs=$(_run_act "$(echo "$experiment" | yq -c '.story.event' | tr -d '\"')" "$tmp_directory" "$tmp_inputs")
+
+		if ((_LOG_WORKFLOW)); then
+			echo "$logs"
+		fi
 
 		# (4) test logs for expected text
 		if ! _test_experiment "$logs" "$experiment"; then
