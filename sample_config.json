@@ -12,10 +12,30 @@
             "COMPUTED": 5
           }
         },
-        "tests": [
-          "Get expensive computation",
-          "Log directory"
-        ]
+        "test": {
+          "includes": [
+            "Get expensive computation"
+          ]
+        }
+      }
+    },
+    {
+      "it": "Does not log directory when not suppose to",
+      "push": {
+        "inputs": {
+          "logDirectory": false,
+          "working_directory": "/tmp/docker-project"
+        },
+        "outputs": {
+          "expensive-function": {
+            "COMPUTED": 5
+          }
+        },
+        "test": {
+          "excludes": [
+            "Log directory"
+          ]
+        }
       }
     }
   ]

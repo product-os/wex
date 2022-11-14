@@ -343,19 +343,44 @@ _wex() {
 		fi
 
 		# (2) modify workflow so that steps do not run
+		# TODO: add support for reusable workflows
+		# TODO: support no output specified in config
 		_mod_step_run "${tmp_directory}/${_ARG_WORKFLOW}" "$(echo "$experiment" | yq -c ".$event.outputs")"
 
 		# (3) call act
 		logs=$(_run_act "$event" "$tmp_directory" "$tmp_inputs")
 
+		# TODO: this should print as act outputs instead of waiting for the process to complete
 		if ((_LOG_WORKFLOW)); then
 			echo "$logs"
 		fi
 
 		# (4) test logs for expected text
 		title=$(echo "$experiment" | yq -c '.it')
-		tests=$(echo "$experiment" | yq -c ".$event.tests[]")
-		if ! _test_experiment "$logs" "$tests"; then
+		# TODO: create a helper function for passing variable to yq
+		failed_test=false
+		include_tests=$(echo "$experiment" | yq -c ".$event.test.includes")
+		exclude_tests=$(echo "$experiment" | yq -c ".$event.test.excludes")
+
+		# TODO: make this more DRY
+		if [[ "$include_tests" != "null" ]]; then
+			while read -r tests; do
+				if ! _test_experiment "$logs" "$tests" true; then
+					failed_test=true
+				fi
+			done < <(echo "$include_tests")
+		fi
+
+		# TODO: make this more DRY
+		if [[ "$exclude_tests" != "null" ]]; then
+			while read -r tests; do
+				if ! _test_experiment "$logs" "$tests" false; then
+					failed_test=true
+				fi
+			done < <(echo "$exclude_tests")
+		fi
+
+		if "$failed_test"; then
 			echo "$title - ⚠ FAILED"
 			_debug printf "Failed experiment, incrementing fails!"
 			((fails = fails + 1))
@@ -377,16 +402,24 @@ _wex() {
 }
 
 _test_experiment() {
-	pass=1
+	pass=true
 	while read -r test; do
-		if ! echo "$1" | grep -q "$(echo "⭐ Run Main $test" | tr -d '\"')"; then
-			# Fail if a single test does not pass
-			pass=0
+		# TODO: make this more DRY
+		if "$3"; then
+			if ! echo "$1" | grep -q "$(echo "⭐ Run Main $test" | tr -d '\"')"; then
+				# Fail if a single test does not pass
+				pass=false
+			fi
+		else
+			if echo "$1" | grep -q "$(echo "⭐ Run Main $test" | tr -d '\"')"; then
+				# Fail if a single test does not pass
+				pass=false
+			fi
 		fi
 	done < <(echo "$2")
 
 	# check that all tests pass
-	if ((pass)); then
+	if "$pass"; then
 		return 0
 	else
 		return 1
