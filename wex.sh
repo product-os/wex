@@ -256,8 +256,8 @@ _LOG_WORKFLOW=0
 _USE_DEBUG=0
 
 # Initialize additional expected argument variables.
-_OPTION_W=
-_OPTION_C=
+_ARG_WORKFLOW=
+_ARG_CONFIG=
 _PRINT_VERSION=0
 
 # __get_option_value()
@@ -297,11 +297,11 @@ while ((${#})); do
 		_LOG_WORKFLOW=1
 		;;
 	-w | --workflow)
-		_OPTION_W="$(__get_option_value "${__arg}" "${__val:-}")"
+		_ARG_WORKFLOW="$(__get_option_value "${__arg}" "${__val:-}")"
 		_PRINT_HELP=0
 		;;
 	-c | --config)
-		_OPTION_C="$(__get_option_value "${__arg}" "${__val:-}")"
+		_ARG_CONFIG="$(__get_option_value "${__arg}" "${__val:-}")"
 		_PRINT_HELP=0
 		;;
 	--version)
@@ -325,10 +325,10 @@ done
 ###############################################################################
 
 _wex() {
-	_debug printf "Wex trying \`${_OPTION_W}\` with config \`${_OPTION_C}\`"
+	_debug printf "Wex trying \`${_ARG_WORKFLOW}\` with config \`${_ARG_CONFIG}\`"
 	fails=0
 	tmp_directory=$(_cp_workflow)
-	total=$(yq -c '.experiments | length' "$_OPTION_C")
+	total=$(yq -c '.experiments | length' "$_ARG_CONFIG")
 	_debug printf "Found $total experiments to test"
 	# Loop over each experiment in config
 	while read -r experiment; do
@@ -343,7 +343,7 @@ _wex() {
 		fi
 
 		# (2) modify workflow so that steps do not run
-		_mod_step_run "${tmp_directory}/${_OPTION_W}" "$(echo "$experiment" | yq -c ".$event.outputs")"
+		_mod_step_run "${tmp_directory}/${_ARG_WORKFLOW}" "$(echo "$experiment" | yq -c ".$event.outputs")"
 
 		# (3) call act
 		logs=$(_run_act "$event" "$tmp_directory" "$tmp_inputs")
@@ -362,7 +362,7 @@ _wex() {
 		else
 			echo "$title - ✔ PASSED"
 		fi
-	done < <(yq -c '.experiments[]' "$_OPTION_C")
+	done < <(yq -c '.experiments[]' "$_ARG_CONFIG")
 
 	# Cleanup tmp workflow
 	rm -r "$tmp_directory"
@@ -441,9 +441,9 @@ _cp_workflow() {
 	# Make a tmp directory to store modified workflow
 	workflow_directory=$(mktemp -d)
 	# Copy provided workflow to tmp directory
-	_debug printf "Making a copy of %s in %s" "$_OPTION_W" "$workflow_directory"
+	_debug printf "Making a copy of %s in %s" "$_ARG_WORKFLOW" "$workflow_directory"
 	# shellcheck disable=2154
-	cp "$_OPTION_W" "$workflow_directory"
+	cp "$_ARG_WORKFLOW" "$workflow_directory"
 	echo "$workflow_directory"
 }
 
@@ -458,15 +458,15 @@ _main() {
 		_print_version
 	else
 		# Make sure the required arguments are set and valid
-		if [ -z "$_OPTION_W" ]; then
+		if [ -z "$_ARG_WORKFLOW" ]; then
 			_exit_1 printf "Missing workflow argument. See --help."
-		elif [ ! -f "$_OPTION_W" ]; then
-			_exit_1 printf "Workflow file '${_OPTION_W}' does not exists."
+		elif [ ! -f "$_ARG_WORKFLOW" ]; then
+			_exit_1 printf "Workflow file '${_ARG_WORKFLOW}' does not exists."
 		fi
-		if [ -z "$_OPTION_C" ]; then
+		if [ -z "$_ARG_CONFIG" ]; then
 			_exit_1 printf "Missing config argument. See --help."
-		elif [ ! -f "$_OPTION_C" ]; then
-			_exit_1 printf "Config file '${_OPTION_C}' does not exists."
+		elif [ ! -f "$_ARG_CONFIG" ]; then
+			_exit_1 printf "Config file '${_ARG_CONFIG}' does not exists."
 		fi
 		# Run the show
 		_wex "$@"
