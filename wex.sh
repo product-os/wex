@@ -219,6 +219,7 @@ Options:
   -h --help      Display this help information.
   -D --debug     Log additional information to see what Wex is doing. 
   --verbose      Make Workflow runner log more information.
+  --logs         Print Workflow logs (Same logs you'd see on Github).
 
 Arguments:
   -w --workflow  Workflow to use. 
