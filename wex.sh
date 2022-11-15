@@ -324,6 +324,10 @@ done
 # Program Functions
 ###############################################################################
 
+_yq() {
+	echo "$2" | yq -c "$1"
+}
+
 _wex() {
 	_debug printf "Wex trying \`${_ARG_WORKFLOW}\` with config \`${_ARG_CONFIG}\`"
 	fails=0
@@ -333,10 +337,10 @@ _wex() {
 	# Loop over each experiment in config
 	while read -r experiment; do
 		# Get the webhook event
-		event=$(echo "$experiment" | yq -c 'with_entries(select(.key != "it")) | keys[]' | tr -d '\"')
+		event=$(_yq 'with_entries(select(.key != "it")) | keys[]' "$experiment" | tr -d '"')
 		# (1) create inputs file
 		tmp_inputs=
-		inputs=$(echo "$experiment" | yq -c ".$event.inputs")
+		inputs=$(_yq ".$event.inputs" "$experiment")
 		if ! [ "$inputs" = "null" ]; then
 			_debug printf "Creating inputs file from config inputs"
 			# TODO: make tmp directory global since all  functions will push there
@@ -346,7 +350,7 @@ _wex() {
 		# (2) modify workflow so that steps do not run
 		# TODO: add support for reusable workflows
 		# TODO: support no output specified in config
-		_mod_step_run "${tmp_directory}/${_ARG_WORKFLOW}" "$(echo "$experiment" | yq -c ".$event.outputs")"
+		_mod_step_run "${tmp_directory}/${_ARG_WORKFLOW}" "$(_yq ".$event.outputs" "$experiment")"
 
 		# (3) call act
 		logs=$(_run_act "$event" "$tmp_directory" "$tmp_inputs")
@@ -357,17 +361,16 @@ _wex() {
 		fi
 
 		# (4) test logs for expected text
-		title=$(echo "$experiment" | yq -c '.it')
+		title=$(_yq ".it" "$experiment")
 		# TODO: create a helper function for passing variable to yq
 		failed_test=0
-		include_tests=$(echo "$experiment" | yq -c ".$event.test.includes")
-		exclude_tests=$(echo "$experiment" | yq -c ".$event.test.excludes")
+		include_tests=$(_yq ".$event.test.includes" "$experiment")
+		exclude_tests=$(_yq ".$event.test.excludes" "$experiment")
 
 		# TODO: make this more DRY
 		if [[ "$include_tests" != "null" ]]; then
 			while read -r tests; do
 				if ! _test_experiment "$logs" "$tests" true; then
-					# TODO: make this return an integer
 					failed_test=1
 				fi
 			done < <(echo "$include_tests")
@@ -408,12 +411,12 @@ _test_experiment() {
 	while read -r test; do
 		# TODO: make this more DRY
 		if "$3"; then
-			if ! echo "$1" | grep -q "$(echo "⭐ Run Main $test" | tr -d '\"')"; then
+			if ! echo "$1" | grep -q "$(echo "⭐ Run Main $test" | tr -d '"')"; then
 				# Fail if a single test does not pass
 				pass=false
 			fi
 		else
-			if echo "$1" | grep -q "$(echo "⭐ Run Main $test" | tr -d '\"')"; then
+			if echo "$1" | grep -q "$(echo "⭐ Run Main $test" | tr -d '"')"; then
 				# Fail if a single test does not pass
 				pass=false
 			fi
@@ -431,15 +434,15 @@ _test_experiment() {
 _mod_step_run() {
 	_debug printf "Modifying steps in $1"
 
-	echo "$2" | yq -c "keys[]" | while read -r step; do
+	_yq "keys[]" "$2" | while read -r step; do
 		target_step_id=$(echo "$step" | tr -d '"')
 		override=""
 		# build string of echos to set output in step.run
 		while read -r output_key; do
 			key=$(echo "$output_key" | tr -d '"')
-			value=$(echo "$2" | yq -c ".${step}.${output_key}")
+			value=$(_yq ".${step}.${output_key}" "$2")
 			override="${override}\n$(_set_output "$key" "$value")"
-		done < <(echo "$2" | yq -c ".${step} | keys[]")
+		done < <(_yq ".${step} | keys[]" "$2")
 		# delete 'uses' on step if set
 		yq -iy "del(.jobs[].steps[] | select(.id == \"${target_step_id}\") | .uses)" "$1"
 		# set existing or add new 'run' to just echo outputs
