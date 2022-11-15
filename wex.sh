@@ -407,24 +407,24 @@ _wex() {
 }
 
 _test_experiment() {
-	pass=true
+	pass=1
 	while read -r test; do
 		# TODO: make this more DRY
 		if "$3"; then
 			if ! echo "$1" | grep -q "$(echo "⭐ Run Main $test" | tr -d '"')"; then
 				# Fail if a single test does not pass
-				pass=false
+				pass=0
 			fi
 		else
 			if echo "$1" | grep -q "$(echo "⭐ Run Main $test" | tr -d '"')"; then
 				# Fail if a single test does not pass
-				pass=false
+				pass=0
 			fi
 		fi
 	done < <(echo "$2")
 
 	# check that all tests pass
-	if "$pass"; then
+	if ((pass)); then
 		return 0
 	else
 		return 1
