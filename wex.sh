@@ -324,10 +324,6 @@ done
 # Program Functions
 ###############################################################################
 
-_yq() {
-	echo "$2" | yq -c "$1"
-}
-
 _wex() {
 	_debug printf "Wex trying \`${_ARG_WORKFLOW}\` with config \`${_ARG_CONFIG}\`"
 	fails=0
@@ -343,7 +339,6 @@ _wex() {
 		inputs=$(_yq ".$event.inputs" "$experiment")
 		if ! [[ $inputs = "null" ]]; then
 			_debug printf "Creating inputs file from config inputs"
-			# TODO: make tmp directory global since all  functions will push there
 			tmp_inputs=$(_create_input "$tmp_directory" "$inputs")
 		fi
 
@@ -361,35 +356,14 @@ _wex() {
 
 		# (4) test logs for expected text
 		title=$(_yq ".it" "$experiment")
-		failed_test=0
-		include_tests=$(_yq ".$event.test.includes" "$experiment")
-		exclude_tests=$(_yq ".$event.test.excludes" "$experiment")
-
-		# TODO: make this more DRY
-		if [[ $include_tests != "null" ]]; then
-			while read -r tests; do
-				if ! _test_experiment "$logs" "$tests" true; then
-					failed_test=1
-				fi
-			done < <(echo "$include_tests")
-		fi
-
-		# TODO: make this more DRY
-		if [[ $exclude_tests != "null" ]]; then
-			while read -r tests; do
-				if ! _test_experiment "$logs" "$tests" false; then
-					failed_test=1
-				fi
-			done < <(echo "$exclude_tests")
-		fi
-
-		if ((failed_test)); then
+		if ! _test_logs "$logs" "$(_yq ".$event.test.includes" "$experiment")" "$(_yq ".$event.test.excludes" "$experiment")"; then
 			echo "$title - ⚠ FAILED"
 			_debug printf "Failed experiment, incrementing fails!"
 			((fails = fails + 1))
 		else
 			echo "$title - ✔ PASSED"
 		fi
+
 	done < <(yq -c '.experiments[]' "$_ARG_CONFIG")
 
 	# Cleanup tmp workflow
@@ -404,29 +378,32 @@ _wex() {
 	fi
 }
 
-_test_experiment() {
-	pass=1
+_test_logs() {
+	if [[ $2 != "null" ]]; then
+		if ! _logs_include "$1" "$2"; then
+			return 1
+		fi
+	fi
+	if [[ $3 != "null" ]]; then
+		if _logs_include "$1" "$3"; then
+			return 1
+		fi
+	fi
+	return 0
+}
+
+_yq() {
+	echo "$2" | yq -c "$1"
+}
+
+_logs_include() {
 	while read -r test; do
-		# TODO: make this more DRY
-		if "$3"; then
-			if ! echo "$1" | grep -q "$(echo "⭐ Run Main $test" | tr -d '"')"; then
-				# Fail if a single test does not pass
-				pass=0
-			fi
-		else
-			if echo "$1" | grep -q "$(echo "⭐ Run Main $test" | tr -d '"')"; then
-				# Fail if a single test does not pass
-				pass=0
-			fi
+		if ! echo "$1" | grep -q "$(echo "⭐ Run Main $test" | tr -d '"')"; then
+			# Fail if a single test does not pass
+			return 1
 		fi
 	done < <(echo "$2")
-
-	# check that all tests pass
-	if ((pass)); then
-		return 0
-	else
-		return 1
-	fi
+	return 0
 }
 
 _mod_step_run() {
