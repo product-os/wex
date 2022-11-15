@@ -347,12 +347,7 @@ _wex() {
 		_mod_step_run "${tmp_directory}/${_ARG_WORKFLOW}" "$(_yq ".$event.outputs" "$experiment")"
 
 		# (3) call act
-		logs=$(_run_act "$event" "$tmp_directory" "$tmp_inputs")
-
-		# TODO: this should print as act outputs instead of waiting for the process to complete
-		if ((_OPT_LOG_WORKFLOW)); then
-			echo "$logs"
-		fi
+		logs=$(_run_act "$event" "$tmp_directory" "$tmp_inputs" 2>&1 | _log)
 
 		# (4) test logs for expected text
 		title=$(_yq ".it" "$experiment")
@@ -376,6 +371,13 @@ _wex() {
 	else
 		_exit_1 echo " - $fails/$total EXPERIMENTS FAILED!"
 	fi
+}
+
+_log() {
+	if ((_OPT_LOG_WORKFLOW)); then
+		tee /dev/tty
+	fi
+	cat
 }
 
 _test_logs() {
