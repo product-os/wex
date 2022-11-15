@@ -218,13 +218,13 @@ Usage:
 Options:
   -h --help      Display this help information.
   -D --debug     Log additional information to see what Wex is doing. 
+  --version      Print version. 
   --verbose      Make Workflow runner log more information.
   --logs         Print Workflow logs (Same logs you'd see on Github).
 
 Arguments:
   -w --workflow  Workflow to use. 
   -c --config    Config file with experiments.
-  --version      Print version. 
 HEREDOC
 }
 
@@ -250,15 +250,15 @@ HEREDOC
 # Parse Options ###############################################################
 
 # Initialize program option variables.
-_PRINT_HELP=1
-_VERBOSE=0
-_LOG_WORKFLOW=0
-_USE_DEBUG=0
+_OPT_PRINT_HELP=1
+_OPT_VERBOSE=0
+_OPT_LOG_WORKFLOW=0
+_OPT_USE_DEBUG=0
+_OPT_PRINT_VERSION=0
 
 # Initialize additional expected argument variables.
 _ARG_WORKFLOW=
 _ARG_CONFIG=
-_PRINT_VERSION=0
 
 # __get_option_value()
 #
@@ -285,28 +285,28 @@ while ((${#})); do
 
 	case "${__arg}" in
 	-h | --help)
-		_PRINT_HELP=1
+		_OPT_PRINT_HELP=1
+		;;
+	--version)
+		_OPT_PRINT_VERSION=1
+		_OPT_PRINT_HELP=0
 		;;
 	--verbose)
-		_VERBOSE=1
+		_OPT_VERBOSE=1
 		;;
 	--debug)
-		_USE_DEBUG=1
+		_OPT_USE_DEBUG=1
 		;;
 	--logs)
-		_LOG_WORKFLOW=1
+		_OPT_LOG_WORKFLOW=1
 		;;
 	-w | --workflow)
 		_ARG_WORKFLOW="$(__get_option_value "${__arg}" "${__val:-}")"
-		_PRINT_HELP=0
+		_OPT_PRINT_HELP=0
 		;;
 	-c | --config)
 		_ARG_CONFIG="$(__get_option_value "${__arg}" "${__val:-}")"
-		_PRINT_HELP=0
-		;;
-	--version)
-		_PRINT_VERSION=1
-		_PRINT_HELP=0
+		_OPT_PRINT_HELP=0
 		;;
 	--endopts)
 		# Terminate option parsing.
@@ -339,6 +339,7 @@ _wex() {
 		inputs=$(echo "$experiment" | yq -c ".$event.inputs")
 		if ! [ "$inputs" = "null" ]; then
 			_debug printf "Creating inputs file from config inputs"
+			# TODO: make tmp directory global since all  functions will push there
 			tmp_inputs=$(_create_input "$tmp_directory" "$inputs")
 		fi
 
@@ -351,7 +352,7 @@ _wex() {
 		logs=$(_run_act "$event" "$tmp_directory" "$tmp_inputs")
 
 		# TODO: this should print as act outputs instead of waiting for the process to complete
-		if ((_LOG_WORKFLOW)); then
+		if ((_OPT_LOG_WORKFLOW)); then
 			echo "$logs"
 		fi
 
@@ -366,6 +367,7 @@ _wex() {
 		if [[ "$include_tests" != "null" ]]; then
 			while read -r tests; do
 				if ! _test_experiment "$logs" "$tests" true; then
+					# TODO: make this return an integer
 					failed_test=true
 				fi
 			done < <(echo "$include_tests")
@@ -459,7 +461,7 @@ _create_input() {
 _run_act() {
 	# TODO: pass secrets from .env file as `-s KEY=VALUE` args to act
 	args="$1 -W $2"
-	if ((_VERBOSE)); then
+	if ((_OPT_VERBOSE)); then
 		_debug printf "Adding verbose flag to act"
 		args=" -v $args"
 	fi
@@ -485,9 +487,9 @@ _cp_workflow() {
 ###############################################################################
 
 _main() {
-	if ((_PRINT_HELP)); then
+	if ((_OPT_PRINT_HELP)); then
 		_print_help
-	elif ((_PRINT_VERSION)); then
+	elif ((_OPT_PRINT_VERSION)); then
 		_print_version
 	else
 		# Make sure the required arguments are set and valid
