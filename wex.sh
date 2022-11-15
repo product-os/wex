@@ -349,7 +349,6 @@ _wex() {
 
 		# (2) modify workflow so that steps do not run
 		# TODO: add support for reusable workflows
-		# TODO: support no output specified in config
 		_mod_step_run "${tmp_directory}/${_ARG_WORKFLOW}" "$(_yq ".$event.outputs" "$experiment")"
 
 		# (3) call act
@@ -432,7 +431,7 @@ _test_experiment() {
 
 _mod_step_run() {
 
-	if [[ -z $2 ]]; then
+	if [[ $2 = "null" ]]; then
 		return
 	fi
 

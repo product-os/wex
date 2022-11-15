@@ -26,11 +26,6 @@
           "logDirectory": false,
           "working_directory": "/tmp/docker-project"
         },
-        "outputs": {
-          "expensive-function": {
-            "COMPUTED": 5
-          }
-        },
         "test": {
           "excludes": [
             "Log directory"
