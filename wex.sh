@@ -359,7 +359,7 @@ _wex() {
 		# (4) test logs for expected text
 		title=$(echo "$experiment" | yq -c '.it')
 		# TODO: create a helper function for passing variable to yq
-		failed_test=false
+		failed_test=0
 		include_tests=$(echo "$experiment" | yq -c ".$event.test.includes")
 		exclude_tests=$(echo "$experiment" | yq -c ".$event.test.excludes")
 
@@ -368,7 +368,7 @@ _wex() {
 			while read -r tests; do
 				if ! _test_experiment "$logs" "$tests" true; then
 					# TODO: make this return an integer
-					failed_test=true
+					failed_test=1
 				fi
 			done < <(echo "$include_tests")
 		fi
@@ -377,12 +377,12 @@ _wex() {
 		if [[ "$exclude_tests" != "null" ]]; then
 			while read -r tests; do
 				if ! _test_experiment "$logs" "$tests" false; then
-					failed_test=true
+					failed_test=1
 				fi
 			done < <(echo "$exclude_tests")
 		fi
 
-		if "$failed_test"; then
+		if ((failed_test)); then
 			echo "$title - ⚠ FAILED"
 			_debug printf "Failed experiment, incrementing fails!"
 			((fails = fails + 1))
