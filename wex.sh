@@ -341,7 +341,7 @@ _wex() {
 		# (1) create inputs file
 		tmp_inputs=
 		inputs=$(_yq ".$event.inputs" "$experiment")
-		if ! [ "$inputs" = "null" ]; then
+		if ! [[ $inputs = "null" ]]; then
 			_debug printf "Creating inputs file from config inputs"
 			# TODO: make tmp directory global since all  functions will push there
 			tmp_inputs=$(_create_input "$tmp_directory" "$inputs")
@@ -362,13 +362,12 @@ _wex() {
 
 		# (4) test logs for expected text
 		title=$(_yq ".it" "$experiment")
-		# TODO: create a helper function for passing variable to yq
 		failed_test=0
 		include_tests=$(_yq ".$event.test.includes" "$experiment")
 		exclude_tests=$(_yq ".$event.test.excludes" "$experiment")
 
 		# TODO: make this more DRY
-		if [[ "$include_tests" != "null" ]]; then
+		if [[ $include_tests != "null" ]]; then
 			while read -r tests; do
 				if ! _test_experiment "$logs" "$tests" true; then
 					failed_test=1
@@ -377,7 +376,7 @@ _wex() {
 		fi
 
 		# TODO: make this more DRY
-		if [[ "$exclude_tests" != "null" ]]; then
+		if [[ $exclude_tests != "null" ]]; then
 			while read -r tests; do
 				if ! _test_experiment "$logs" "$tests" false; then
 					failed_test=1
@@ -432,6 +431,11 @@ _test_experiment() {
 }
 
 _mod_step_run() {
+
+	if [[ -z $2 ]]; then
+		return
+	fi
+
 	_debug printf "Modifying steps in $1"
 
 	_yq "keys[]" "$2" | while read -r step; do
@@ -468,7 +472,7 @@ _run_act() {
 		_debug printf "Adding verbose flag to act"
 		args=" -v $args"
 	fi
-	if [[ -n "$3" ]]; then
+	if [[ -n $3 ]]; then
 		args=" -e $3 $args"
 	fi
 	_debug printf "Starting act with args \'$args\'"
@@ -496,14 +500,14 @@ _main() {
 		_print_version
 	else
 		# Make sure the required arguments are set and valid
-		if [ -z "$_ARG_WORKFLOW" ]; then
+		if [[ -z $_ARG_WORKFLOW ]]; then
 			_exit_1 printf "Missing workflow argument. See --help."
-		elif [ ! -f "$_ARG_WORKFLOW" ]; then
+		elif [[ ! -f $_ARG_WORKFLOW ]]; then
 			_exit_1 printf "Workflow file '${_ARG_WORKFLOW}' does not exists."
 		fi
-		if [ -z "$_ARG_CONFIG" ]; then
+		if [[ -z $_ARG_CONFIG ]]; then
 			_exit_1 printf "Missing config argument. See --help."
-		elif [ ! -f "$_ARG_CONFIG" ]; then
+		elif [[ ! -f $_ARG_CONFIG ]]; then
 			_exit_1 printf "Config file '${_ARG_CONFIG}' does not exists."
 		fi
 		# Run the show
