@@ -9,20 +9,24 @@ Make testing workflow changes easier by running them locally, without side effec
   \        /\  ___/ >    <
    \__/\  /  \___  >__/\_ \
         \/       \/      \/
-Usage:
-  wex.sh [--options] [--arguments]
-  wex.sh -w workflow.yml -c wex.json --verbose
-  wex.sh --version
+Usage: wex.sh [OPTION...]
 
-Options:
-  -h --help      Display this help information.
-  -D --debug     Log additional information to see what Wex is doing.
-  --verbose      Make Workflow runner log more information.
+Integration testing for Github Action workflows.
 
-Arguments:
+Mandatory arguments:
   -w --workflow  Workflow to use.
   -c --config    Config file with experiments.
+
+Optional arguments:
+  -h --help      Display this help information.
+  -D --debug     Log additional information to see what Wex is doing.
   --version      Print version.
+  --verbose      Make Workflow runner log more information.
+  --logs         Print Workflow logs (Same logs you'd see on Github).
+
+Exit status:
+	0 if OK,
+	1 if any experiments fail
 ```
 
 ## How

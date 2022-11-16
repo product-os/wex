@@ -210,21 +210,24 @@ _print_help() {
 	echo "   \__/\  /  \___  >__/\_ \ "
 	echo "        \/       \/      \/ "
 	cat <<HEREDOC
-Usage:
-  ${_ME} [--options] [--arguments]
-  ${_ME} -w workflow.yml -c wex.json --verbose
-  ${_ME} --version 
+Usage: ${_ME} [OPTION...]
 
-Options:
+Integration testing for Github Action workflows.
+
+Mandatory arguments:
+  -w --workflow  Workflow to use. 
+  -c --config    Config file with experiments.
+
+Optional arguments:
   -h --help      Display this help information.
   -D --debug     Log additional information to see what Wex is doing. 
   --version      Print version. 
   --verbose      Make Workflow runner log more information.
   --logs         Print Workflow logs (Same logs you'd see on Github).
 
-Arguments:
-  -w --workflow  Workflow to use. 
-  -c --config    Config file with experiments.
+Exit status:
+	0 if OK,
+	1 if any experiments fail
 HEREDOC
 }
 
