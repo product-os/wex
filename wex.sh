@@ -337,20 +337,19 @@ _wex() {
 	while read -r experiment; do
 		# Get the webhook event
 		event=$(_yq 'with_entries(select(.key != "it")) | keys[]' "$experiment" | tr -d '"')
-		# (1) create inputs file
-		tmp_inputs=
+		# (1) setup inputs
+		inputs_file=
 		inputs=$(_yq ".$event.inputs" "$experiment")
 		if ! [[ $inputs = "null" ]]; then
-			_debug printf "Creating inputs file from config inputs"
-			tmp_inputs=$(_create_input "$tmp_directory" "$inputs")
+			inputs_file=$(_setup_inputs "$tmp_directory" "$inputs")
 		fi
 
-		# (2) modify workflow so that steps do not run
+		# (2) modify workflow so that steps output values from config
 		# TODO: add support for reusable workflows
 		_mod_step_run "${tmp_directory}/${_OPT_WORKFLOW}" "$(_yq ".$event.outputs" "$experiment")"
 
 		# (3) call act
-		logs=$(_run_act "$event" "$tmp_directory" "$tmp_inputs" 2>&1 | _log)
+		logs=$(_run_act "$event" "$tmp_directory" "$inputs_file" 2>&1 | _log)
 
 		# (4) test logs for expected text
 		title=$(_yq ".it" "$experiment")
@@ -441,13 +440,22 @@ _set_output() {
 	printf "echo ::set-output name=%s::%s" "$key" "$value"
 }
 
-_create_input() {
+_setup_inputs() {
+	_debug printf "Setting inputs from config"
+	# store inputs to .env in KEY=VALUE format which automatically get sourced by act
+	# _yq "keys[]" "$2" | while read -r k; do
+	# 	# remove quotes around strings
+	# 	input_key=$(echo "$k" | tr -d '"')
+	# 	input_value=$(_yq ".${input_key}" "$2" | tr -d '"')
+	# 	echo "$input_key=$input_value" >>"$1/.env"
+	# done
+	# store inputs to a inputs.json to pass to act
 	echo "{ \"inputs\": {} }" | yq -j "(.inputs) = $2" >"$1/inputs.json"
+	# return inputs.json since act does not automatically source this
 	echo "$1/inputs.json"
 }
 
 _run_act() {
-	# TODO: pass secrets from .env file as `-s KEY=VALUE` args to act
 	args="$1 -W $2"
 	if ((_OPT_VERBOSE)); then
 		_debug printf "Adding verbose flag to act"
