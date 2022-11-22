@@ -129,7 +129,7 @@ _VERSION=0.1.0
 #   _debug printf "Debug info. Variable: %s\\n" "$0"
 __DEBUG_COUNTER=0
 _debug() {
-	if ((${_USE_DEBUG:-0})); then
+	if ((${_OPT_USE_DEBUG:-0})); then
 		__DEBUG_COUNTER=$((__DEBUG_COUNTER + 1))
 		{
 			printf "[DEBUG] "
