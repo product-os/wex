@@ -13,9 +13,7 @@
           }
         },
         "test": {
-          "includes": [
-            "Get expensive computation"
-          ]
+          "includes": ["Get expensive computation"]
         }
       }
     },
@@ -27,9 +25,7 @@
           "working_directory": "/tmp/docker-project"
         },
         "test": {
-          "excludes": [
-            "Log directory"
-          ]
+          "excludes": ["Log directory"]
         }
       }
     }

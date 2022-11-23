@@ -338,20 +338,27 @@ _wex() {
 		# Get the webhook event
 		event=$(_yq 'with_entries(select(.key != "it")) | keys[]' "$experiment" | tr -d '"')
 
+		# (0) convert if given a reusable workflow
+		if _is_reusable_workflow "${tmp_directory}/${_OPT_WORKFLOW}"; then
+			_debug printf "Detected that a reusable workflow was passed to $_NAME"
+			# update workflow_call event with test specified event
+			_convert_workflow "${tmp_directory}/${_OPT_WORKFLOW}" "$event"
+			_debug printf "Normalized workflow to trigger on '$event' events"
+		fi
+
 		# (1) setup inputs
-		inputs_file=
 		inputs=$(_yq ".$event.inputs" "$experiment")
 		if ! [[ $inputs = "null" ]]; then
-			inputs_file=$(_setup_inputs "$tmp_directory" "$inputs")
+			_debug printf "Setting inputs from config"
+			_create_env_file "$tmp_directory" "$inputs"
 		fi
 
 		# (2) modify workflow so that steps output values from config
-		# TODO: add support for reusable workflows
 		_mod_step_run "${tmp_directory}/${_OPT_WORKFLOW}" "$(_yq ".$event.outputs" "$experiment")"
 
 		# (3) call act
 		_debug printf "Calling act with '$event' event"
-		logs=$(_run_act "$event" "$tmp_directory" "$inputs_file" 2>&1 | _log)
+		logs=$(_run_act "$event" "$tmp_directory" 2>&1 | _log)
 		_debug printf "Act finished running"
 
 		# (4) test logs for expected text
@@ -453,38 +460,22 @@ _set_output() {
 	printf "echo ::set-output name=%s::%s" "$key" "$value"
 }
 
-_setup_inputs() {
-	_debug printf "Setting inputs from config"
-	_create_env_file "$1" "$2"
-	_create_inputs_file "$1" "$2"
-}
-
-_create_inputs_file() {
-	# store inputs to a inputs.json to pass to act
-	echo "{ \"inputs\": {} }" | yq -j "(.inputs) = $2" >"$1/inputs.json"
-	# return inputs.json since act does not automatically source this
-	echo "$1/inputs.json"
-}
-
 _create_env_file() {
 	# store inputs to .env in KEY=VALUE format which automatically get sourced by act
 	_yq "keys[]" "$2" | while read -r k; do
 		# remove quotes around strings
 		input_key=$(echo "$k" | tr -d '"')
 		input_value=$(_yq ".${input_key}" "$2" | tr -d '"')
-		echo "$input_key=$input_value" >>"$1/.env"
+		echo "INPUT_$input_key=$input_value" >>"$1/.env"
 	done
 }
 
 _run_act() {
 	# TODO improve debugging since we can't log stuff here because
 	# it will get captured in the logs that are tested
-	args="$1 -W $2"
+	args="$1 -W $2 --env-file ${tmp_directory}/.env"
 	if ((_OPT_VERBOSE)); then
 		args=" -v $args"
-	fi
-	if [[ -n $3 ]]; then
-		args=" -e $3 $args"
 	fi
 	eval act "$args"
 }
@@ -492,11 +483,25 @@ _run_act() {
 _cp_workflow() {
 	# Make a tmp directory to store modified workflow
 	workflow_directory=$(mktemp -d)
+	# Create an empty env file for setting inputs if needed
+	touch "$workflow_directory/.env"
 	# Copy provided workflow to tmp directory
 	_debug printf "Making a copy of %s in %s" "$_OPT_WORKFLOW" "$workflow_directory"
 	# shellcheck disable=2154
 	cp "$_OPT_WORKFLOW" "$workflow_directory"
 	echo "$workflow_directory"
+}
+
+_convert_workflow() {
+	_debug printf "Converting reusable working to one $_NAME can use"
+	yq -iy "(.on) = \"${2}\"" "$1"
+}
+
+_is_reusable_workflow() {
+	if [[ $(yq -c '.on | keys[0]' "$1" | tr -d '\"') = "workflow_call" ]]; then
+		return 0
+	fi
+	return 1
 }
 
 ###############################################################################

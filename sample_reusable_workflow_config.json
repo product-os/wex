@@ -1,0 +1,17 @@
+{
+  "experiments": [
+    {
+      "it": "Sets config path input as an output",
+      "push": {
+        "inputs": {
+          "config_path": "/test/path"
+        },
+        "test": {
+          "includes": [
+            "Config path output was set"
+          ]
+        }
+      }
+    }
+  ]
+}
