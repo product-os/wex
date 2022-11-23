@@ -12,6 +12,6 @@ jobs:
         if: steps.expensive-function.outputs.COMPUTED == '5'
         run: echo "The output is ${{ steps.expensive-function.outputs.COMPUTED }}"
       - name: Log directory
-        if: github.event.inputs.logDirectory == true
+        if: inputs.logDirectory == true
         run: |
-          echo "working_directory -> ${{ github.event.inputs.working_directory }}"
+          echo "working_directory -> ${{ inputs.working_directory }}"
