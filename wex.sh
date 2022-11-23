@@ -337,6 +337,7 @@ _wex() {
 	while read -r experiment; do
 		# Get the webhook event
 		event=$(_yq 'with_entries(select(.key != "it")) | keys[]' "$experiment" | tr -d '"')
+
 		# (1) setup inputs
 		inputs_file=
 		inputs=$(_yq ".$event.inputs" "$experiment")
@@ -349,11 +350,14 @@ _wex() {
 		_mod_step_run "${tmp_directory}/${_OPT_WORKFLOW}" "$(_yq ".$event.outputs" "$experiment")"
 
 		# (3) call act
+		_debug printf "Calling act with '$event' event"
 		logs=$(_run_act "$event" "$tmp_directory" "$inputs_file" 2>&1 | _log)
+		_debug printf "Act finished running"
 
 		# (4) test logs for expected text
 		title=$(_yq ".it" "$experiment")
-		if ! _test_logs "$logs" "$(_yq ".$event.test.includes" "$experiment")" "$(_yq ".$event.test.excludes" "$experiment")"; then
+		tests="$(_yq ".$event.test" "$experiment")"
+		if ! _test_logs "$logs" "$tests"; then
 			echo "$title - ⚠ FAILED"
 			_debug printf "Failed experiment, incrementing fails!"
 			((fails = fails + 1))
@@ -383,13 +387,19 @@ _log() {
 }
 
 _test_logs() {
-	if [[ $2 != "null" ]]; then
-		if ! _logs_include "$1" "$2"; then
+	# test includes tests
+	includes="$(_yq ".$event.test.includes" "$experiment")"
+	if [[ $includes != "null" ]]; then
+		if ! _logs_include "$1" "$includes"; then
+			_debug printf "Logs did not include what we wanted"
 			return 1
 		fi
 	fi
-	if [[ $3 != "null" ]]; then
-		if _logs_include "$1" "$3"; then
+	# test excludes tests
+	excludes="$(_yq ".$event.test.excludes" "$experiment")"
+	if [[ $excludes != "null" ]]; then
+		if _logs_include "$1" "$excludes"; then
+			_debug printf "Logs included what we did not want"
 			return 1
 		fi
 	fi
@@ -401,12 +411,15 @@ _yq() {
 }
 
 _logs_include() {
-	while read -r test; do
-		if ! echo "$1" | grep -q "$(echo "⭐ Run Main $test" | tr -d '"')"; then
+	while read -r t; do
+		test=$(echo "⭐ Run Main $t" | tr -d '"')
+		_debug printf "Testing if logs include: $test"
+		if ! echo "$1" | grep -q "$test"; then
 			# Fail if a single test does not pass
 			return 1
 		fi
-	done < <(echo "$2")
+	done < <(echo "$2" | yq -c ".[]")
+	_debug printf "Logs included all the provided text!"
 	return 0
 }
 
@@ -442,29 +455,37 @@ _set_output() {
 
 _setup_inputs() {
 	_debug printf "Setting inputs from config"
-	# store inputs to .env in KEY=VALUE format which automatically get sourced by act
-	# _yq "keys[]" "$2" | while read -r k; do
-	# 	# remove quotes around strings
-	# 	input_key=$(echo "$k" | tr -d '"')
-	# 	input_value=$(_yq ".${input_key}" "$2" | tr -d '"')
-	# 	echo "$input_key=$input_value" >>"$1/.env"
-	# done
+	_create_env_file "$1" "$2"
+	_create_inputs_file "$1" "$2"
+}
+
+_create_inputs_file() {
 	# store inputs to a inputs.json to pass to act
 	echo "{ \"inputs\": {} }" | yq -j "(.inputs) = $2" >"$1/inputs.json"
 	# return inputs.json since act does not automatically source this
 	echo "$1/inputs.json"
 }
 
+_create_env_file() {
+	# store inputs to .env in KEY=VALUE format which automatically get sourced by act
+	_yq "keys[]" "$2" | while read -r k; do
+		# remove quotes around strings
+		input_key=$(echo "$k" | tr -d '"')
+		input_value=$(_yq ".${input_key}" "$2" | tr -d '"')
+		echo "$input_key=$input_value" >>"$1/.env"
+	done
+}
+
 _run_act() {
+	# TODO improve debugging since we can't log stuff here because
+	# it will get captured in the logs that are tested
 	args="$1 -W $2"
 	if ((_OPT_VERBOSE)); then
-		_debug printf "Adding verbose flag to act"
 		args=" -v $args"
 	fi
 	if [[ -n $3 ]]; then
 		args=" -e $3 $args"
 	fi
-	_debug printf "Starting act with args \'$args\'"
 	eval act "$args"
 }
 
