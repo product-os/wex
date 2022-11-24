@@ -221,6 +221,7 @@ Mandatory arguments:
 Optional arguments:
   -h --help      Display this help information.
   -D --debug     Log additional information to see what Wex is doing. 
+  -t --tests      Provide a pattern for tests to exclusively run.
   --version      Print version. 
   --verbose      Make Workflow runner log more information.
   --logs         Print Workflow logs (Same logs you'd see on Github).
@@ -258,6 +259,7 @@ _OPT_VERBOSE=0
 _OPT_LOG_WORKFLOW=0
 _OPT_USE_DEBUG=0
 _OPT_PRINT_VERSION=0
+_OPT_FILTER_TESTS=
 _OPT_WORKFLOW=
 _OPT_CONFIG=
 
@@ -311,6 +313,10 @@ while ((${#})); do
 		_OPT_CONFIG="$(__get_option_value "${__arg}" "${__val:-}")"
 		_OPT_PRINT_HELP=0
 		;;
+	-t | --tests)
+		_OPT_FILTER_TESTS="$(__get_option_value "${__arg}" "${__val:-}")"
+		_OPT_PRINT_HELP=0
+		;;
 	--endopts)
 		# Terminate option parsing.
 		break
@@ -347,10 +353,15 @@ _wex() {
 	config="$original_directory/$_OPT_CONFIG"
 	# Switch to this tmp directory
 	pushd "$tmp_directory" 1>/dev/null
-	total=$(yq -c '.experiments | length' "$config")
-	_debug printf "Found $total experiments to test"
+	total=0
 	# Loop over each experiment in config
 	while read -r experiment; do
+		title=$(_yq ".it" "$experiment")
+		if [[ -n $_OPT_FILTER_TESTS ]]; then
+			# Check if expierment matches filter
+			! [[ $title =~ $_OPT_FILTER_TESTS ]] && continue
+		fi
+		((total = total + 1))
 		# Get the webhook event
 		event=$(_yq 'with_entries(select(.key != "it" and .key != "secrets")) | keys[]' "$experiment" | tr -d '"')
 
@@ -388,7 +399,6 @@ _wex() {
 		_debug printf "Act finished running"
 
 		# (4) test logs for expected text
-		title=$(_yq ".it" "$experiment")
 		tests="$(_yq ".$event.test" "$experiment")"
 		if ! _test_logs "$logs" "$tests"; then
 			echo "$title - ⚠ FAILED"
