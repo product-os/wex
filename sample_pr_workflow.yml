@@ -1,0 +1,14 @@
+name: run-local
+on:
+  pull_request:
+    types: [opened, synchronize, closed]
+    branches:
+      - "main"
+      - "master"
+jobs:
+  my-job:
+    runs-on: ubuntu-latest
+    steps:
+      - name: check if PR was merged
+        if: github.event.pull_request.state == 'closed' && github.event.pull_request.merged == true
+        run: echo "PR was merged"

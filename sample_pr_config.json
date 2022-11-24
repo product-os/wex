@@ -1,0 +1,15 @@
+{
+  "experiments": [
+    {
+      "it": "Detects when PR is merged",
+      "pull_request": {
+        "event": "pr_webhook.json",
+        "test": {
+          "includes": [
+            "PR was merged"
+          ]
+        }
+      }
+    }
+  ]
+}

@@ -380,25 +380,45 @@ _wex() {
 			_create_env_file "$inputs"
 		fi
 
-		# (1) setup secrets
+		# (2) setup secrets
 		secrets=$(_yq ".secrets" "$experiment" | tr -d '"')
 		if ! [[ $secrets = "null" ]]; then
 			if [[ ! -f $original_directory/$secrets ]]; then
 				_exit_1 printf "Secrets file at $original_directory/$secrets does not exist"
 			fi
 			_debug printf "Setting secrets from config"
-			_create_secrets_file "$original_directory/$secrets"
+			cp "$original_directory/$secrets" .secrets
 		fi
 
-		# (2) modify workflow so that steps output values from config
+		# (3) setup webhook payload
+		payload=$(_yq ".$event.event" "$experiment" | tr -d '"')
+		if ! [[ $payload = "null" ]]; then
+			if [[ ! -f $original_directory/$payload ]]; then
+				_exit_1 printf "Webhook payload file at $original_directory/$payload does not exist"
+			fi
+			_debug printf "Setting webhook payload from config"
+			cp "$original_directory/$payload" webhook_payload.json
+		fi
+
+		# (4) modify workflow so that steps output values from config
 		_mod_step_run "${_OPT_WORKFLOW}" "$(_yq ".$event.outputs" "$experiment")"
 
-		# (3) call act
+		# (5) call act
 		_debug printf "Calling act with '$event' event"
-		logs=$(_run_act "$event" 2>&1 | _log)
+		args="$event -W ."
+		if ((_OPT_VERBOSE)); then
+			# Tell act to run with verbose flag
+			args="$args -v"
+		fi
+		if ! [[ $payload = "null" ]]; then
+			# Tell act to use custom webhook payload
+			args="$args --eventpath webhook_payload.json"
+		fi
+		_debug printf "Evaluating 'act $args'"
+		logs=$(eval act "$args" 2>&1 | _log)
 		_debug printf "Act finished running"
 
-		# (4) test logs for expected text
+		# (6) test logs for expected text
 		tests="$(_yq ".$event.test" "$experiment")"
 		if ! _test_logs "$logs" "$tests"; then
 			echo "$title - ⚠ FAILED"
@@ -501,20 +521,6 @@ _create_env_file() {
 		input_value=$(_yq ".${input_key}" "$1" | tr -d '"')
 		echo "INPUT_$input_key=$input_value" >>".env"
 	done
-}
-
-_create_secrets_file() {
-	# store secrets to .secrets in KEY=VALUE format which automatically get sourced by act
-	cp "$1" .secrets
-}
-
-_run_act() {
-	# NOTE act will automatically source .env and .secrets in current directory
-	args="$1 -W ."
-	if ((_OPT_VERBOSE)); then
-		args=" -v $args"
-	fi
-	eval act "$args"
 }
 
 _cp_workflow() {
