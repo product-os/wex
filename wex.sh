@@ -343,14 +343,13 @@ _cleanup() {
 }
 
 tmp_directory=
-original_directory=
+original_directory=$(pwd)
 
 _wex() {
 	_debug printf "Wex trying \`${_OPT_WORKFLOW}\` with config \`${_OPT_CONFIG}\`"
 	fails=0
 	tmp_directory=$(_cp_workflow "$_OPT_WORKFLOW")
-	original_directory=$(pwd)
-	config="$original_directory/$_OPT_CONFIG"
+	workflow_file=$(basename "$_OPT_WORKFLOW")
 	# Switch to this tmp directory
 	pushd "$tmp_directory" 1>/dev/null
 	total=0
@@ -366,10 +365,10 @@ _wex() {
 		event=$(_yq 'with_entries(select(.key != "it" and .key != "secrets")) | keys[]' "$experiment" | tr -d '"')
 
 		# (0) convert if given a reusable workflow
-		if _is_reusable_workflow "${_OPT_WORKFLOW}"; then
+		if _is_reusable_workflow "$workflow_file"; then
 			_debug printf "Detected that a reusable workflow was passed to $_NAME"
 			# update workflow_call event with test specified event
-			_convert_workflow "${_OPT_WORKFLOW}" "$event"
+			_convert_workflow "$workflow_file" "$event"
 			_debug printf "Normalized workflow to trigger on '$event' events"
 		fi
 
@@ -401,7 +400,7 @@ _wex() {
 		fi
 
 		# (4) modify workflow so that steps output values from config
-		_mod_step_run "${_OPT_WORKFLOW}" "$(_yq ".$event.outputs" "$experiment")"
+		_mod_step_run "$workflow_file" "$(_yq ".$event.outputs" "$experiment")"
 
 		# (5) call act
 		_debug printf "Calling act with '$event' event"
@@ -428,7 +427,7 @@ _wex() {
 			echo "$title - ✔ PASSED"
 		fi
 
-	done < <(yq -c '.experiments[]' "$config")
+	done < <(yq -c '.experiments[]' "$original_directory/$_OPT_CONFIG")
 
 	# Check results!
 	if ! ((fails)); then
@@ -526,11 +525,8 @@ _create_env_file() {
 _cp_workflow() {
 	# Make a tmp directory to store modified workflow
 	workflow_directory=$(mktemp -d)
-	# Create an empty env file for setting inputs if needed
-	touch "$workflow_directory/.env"
 	# Copy provided workflow to tmp directory
 	_debug printf "Making a copy of %s in %s" "$1" "$workflow_directory"
-	# shellcheck disable=2154
 	cp "$1" "$workflow_directory"
 	echo "$workflow_directory"
 }
