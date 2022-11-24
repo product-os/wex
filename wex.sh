@@ -327,13 +327,25 @@ done
 # Program Functions
 ###############################################################################
 
+trap _cleanup EXIT
+
+_cleanup() {
+	# Change back to previous location
+	popd &>/dev/null
+	# Cleanup tmp workflow if created
+	rm -r "$tmp_directory" 2>/dev/null
+}
+
+tmp_directory=
+
 _wex() {
 	_debug printf "Wex trying \`${_OPT_WORKFLOW}\` with config \`${_OPT_CONFIG}\`"
 	fails=0
-	tmp_directory=$(_cp_workflow)
-	# TODO cd to tmp_directory so .env and .secrets are automatically sourced.
-	# plus any of the action stuff with generate files into the tmp folder
-	total=$(yq -c '.experiments | length' "$_OPT_CONFIG")
+	tmp_directory=$(_cp_workflow "$_OPT_WORKFLOW")
+	config="$(pwd)/$_OPT_CONFIG"
+	# Switch to this tmp directory
+	pushd "$tmp_directory" 1>/dev/null
+	total=$(yq -c '.experiments | length' "$config")
 	_debug printf "Found $total experiments to test"
 	# Loop over each experiment in config
 	while read -r experiment; do
@@ -341,10 +353,10 @@ _wex() {
 		event=$(_yq 'with_entries(select(.key != "it")) | keys[]' "$experiment" | tr -d '"')
 
 		# (0) convert if given a reusable workflow
-		if _is_reusable_workflow "${tmp_directory}/${_OPT_WORKFLOW}"; then
+		if _is_reusable_workflow "${_OPT_WORKFLOW}"; then
 			_debug printf "Detected that a reusable workflow was passed to $_NAME"
 			# update workflow_call event with test specified event
-			_convert_workflow "${tmp_directory}/${_OPT_WORKFLOW}" "$event"
+			_convert_workflow "${_OPT_WORKFLOW}" "$event"
 			_debug printf "Normalized workflow to trigger on '$event' events"
 		fi
 
@@ -352,15 +364,15 @@ _wex() {
 		inputs=$(_yq ".$event.inputs" "$experiment")
 		if ! [[ $inputs = "null" ]]; then
 			_debug printf "Setting inputs from config"
-			_create_env_file "$tmp_directory" "$inputs"
+			_create_env_file "$inputs"
 		fi
 
 		# (2) modify workflow so that steps output values from config
-		_mod_step_run "${tmp_directory}/${_OPT_WORKFLOW}" "$(_yq ".$event.outputs" "$experiment")"
+		_mod_step_run "${_OPT_WORKFLOW}" "$(_yq ".$event.outputs" "$experiment")"
 
 		# (3) call act
 		_debug printf "Calling act with '$event' event"
-		logs=$(_run_act "$event" "$tmp_directory" 2>&1 | _log)
+		logs=$(_run_act "$event" 2>&1 | _log)
 		_debug printf "Act finished running"
 
 		# (4) test logs for expected text
@@ -374,10 +386,7 @@ _wex() {
 			echo "$title - ✔ PASSED"
 		fi
 
-	done < <(yq -c '.experiments[]' "$_OPT_CONFIG")
-
-	# Cleanup tmp workflow
-	rm -r "$tmp_directory"
+	done < <(yq -c '.experiments[]' "$config")
 
 	# Check results!
 	if ! ((fails)); then
@@ -464,18 +473,17 @@ _set_output() {
 
 _create_env_file() {
 	# store inputs to .env in KEY=VALUE format which automatically get sourced by act
-	_yq "keys[]" "$2" | while read -r k; do
+	_yq "keys[]" "$1" | while read -r k; do
 		# remove quotes around strings
 		input_key=$(echo "$k" | tr -d '"')
-		input_value=$(_yq ".${input_key}" "$2" | tr -d '"')
-		echo "INPUT_$input_key=$input_value" >>"$1/.env"
+		input_value=$(_yq ".${input_key}" "$1" | tr -d '"')
+		echo "INPUT_$input_key=$input_value" >>".env"
 	done
 }
 
 _run_act() {
-	# TODO improve debugging since we can't log stuff here because
-	# it will get captured in the logs that are tested
-	args="$1 -W $2 --env-file ${tmp_directory}/.env"
+	# NOTE act will automatically source .env and .secrets in current directory
+	args="$1 -W ."
 	if ((_OPT_VERBOSE)); then
 		args=" -v $args"
 	fi
@@ -488,9 +496,9 @@ _cp_workflow() {
 	# Create an empty env file for setting inputs if needed
 	touch "$workflow_directory/.env"
 	# Copy provided workflow to tmp directory
-	_debug printf "Making a copy of %s in %s" "$_OPT_WORKFLOW" "$workflow_directory"
+	_debug printf "Making a copy of %s in %s" "$1" "$workflow_directory"
 	# shellcheck disable=2154
-	cp "$_OPT_WORKFLOW" "$workflow_directory"
+	cp "$1" "$workflow_directory"
 	echo "$workflow_directory"
 }
 
