@@ -331,6 +331,8 @@ _wex() {
 	_debug printf "Wex trying \`${_OPT_WORKFLOW}\` with config \`${_OPT_CONFIG}\`"
 	fails=0
 	tmp_directory=$(_cp_workflow)
+	# TODO cd to tmp_directory so .env and .secrets are automatically sourced.
+	# plus any of the action stuff with generate files into the tmp folder
 	total=$(yq -c '.experiments | length' "$_OPT_CONFIG")
 	_debug printf "Found $total experiments to test"
 	# Loop over each experiment in config
@@ -498,8 +500,11 @@ _convert_workflow() {
 }
 
 _is_reusable_workflow() {
-	if [[ $(yq -c '.on | keys[0]' "$1" | tr -d '\"') = "workflow_call" ]]; then
-		return 0
+	keys=$(yq -c '.on' "$1")
+	if [[ "$keys" == \{* ]]; then
+		if [[ $(yq -c '.on | keys[0]' "$1" | tr -d '\"') = "workflow_call" ]]; then
+			return 0
+		fi
 	fi
 	return 1
 }
