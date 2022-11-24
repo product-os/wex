@@ -6,7 +6,7 @@ jobs:
     steps:
       - name: has a secret
         if: secrets.MY_SECRET
-        run: echo "Secret 555 set!"
+        run: echo "Secret set!"
       - name: Do thing
         id: expensive-function
         run: |

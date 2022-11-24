@@ -34,7 +34,7 @@
       "secrets": "secrets",
       "push": {
         "test": {
-          "includes": ["Secret [1-9]* set!"]
+          "includes": ["Secret set!"]
         }
       }
     }
