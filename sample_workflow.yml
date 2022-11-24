@@ -4,6 +4,9 @@ jobs:
   my-job:
     runs-on: ubuntu-latest
     steps:
+      - name: has a secret
+        if: secrets.MY_SECRET
+        run: echo "Secret is set!"
       - name: Do thing
         id: expensive-function
         run: |

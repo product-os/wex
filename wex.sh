@@ -337,12 +337,14 @@ _cleanup() {
 }
 
 tmp_directory=
+original_directory=
 
 _wex() {
 	_debug printf "Wex trying \`${_OPT_WORKFLOW}\` with config \`${_OPT_CONFIG}\`"
 	fails=0
 	tmp_directory=$(_cp_workflow "$_OPT_WORKFLOW")
-	config="$(pwd)/$_OPT_CONFIG"
+	original_directory=$(pwd)
+	config="$original_directory/$_OPT_CONFIG"
 	# Switch to this tmp directory
 	pushd "$tmp_directory" 1>/dev/null
 	total=$(yq -c '.experiments | length' "$config")
@@ -350,7 +352,7 @@ _wex() {
 	# Loop over each experiment in config
 	while read -r experiment; do
 		# Get the webhook event
-		event=$(_yq 'with_entries(select(.key != "it")) | keys[]' "$experiment" | tr -d '"')
+		event=$(_yq 'with_entries(select(.key != "it" and .key != "secrets")) | keys[]' "$experiment" | tr -d '"')
 
 		# (0) convert if given a reusable workflow
 		if _is_reusable_workflow "${_OPT_WORKFLOW}"; then
@@ -365,6 +367,16 @@ _wex() {
 		if ! [[ $inputs = "null" ]]; then
 			_debug printf "Setting inputs from config"
 			_create_env_file "$inputs"
+		fi
+
+		# (1) setup secrets
+		secrets=$(_yq ".secrets" "$experiment" | tr -d '"')
+		if ! [[ $secrets = "null" ]]; then
+			if [[ ! -f $original_directory/$secrets ]]; then
+				_exit_1 printf "Secrets file at $original_directory/$secrets does not exist"
+			fi
+			_debug printf "Setting secrets from config"
+			_create_secrets_file "$original_directory/$secrets"
 		fi
 
 		# (2) modify workflow so that steps output values from config
@@ -479,6 +491,11 @@ _create_env_file() {
 		input_value=$(_yq ".${input_key}" "$1" | tr -d '"')
 		echo "INPUT_$input_key=$input_value" >>".env"
 	done
+}
+
+_create_secrets_file() {
+	# store secrets to .secrets in KEY=VALUE format which automatically get sourced by act
+	cp "$1" .secrets
 }
 
 _run_act() {
