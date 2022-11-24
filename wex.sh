@@ -442,7 +442,7 @@ _yq() {
 
 _logs_include() {
 	while read -r t; do
-		test=$(echo "⭐ Run Main $t" | tr -d '"')
+		test=$(echo "$t" | tr -d '"')
 		_debug printf "Testing if logs include: $test"
 		if ! echo "$1" | grep -q "$test"; then
 			# Fail if a single test does not pass

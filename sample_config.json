@@ -39,7 +39,7 @@
       "push": {
         "test": {
           "includes": [
-            "has a secret"
+            "Secret [1-9]* set!"
           ]
         }
       }
