@@ -532,7 +532,7 @@ _cp_workflow() {
 }
 
 _convert_workflow() {
-	_debug printf "Converting reusable working to one $_NAME can use"
+	_debug printf "Converting reusable workflow to one $_NAME can use"
 	yq -iy "(.on) = \"${2}\"" "$1"
 }
 
