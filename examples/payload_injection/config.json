@@ -3,11 +3,9 @@
     {
       "it": "Detects when PR is merged",
       "pull_request": {
-        "event": "pr_webhook.json",
+        "event": "webhook.json",
         "test": {
-          "includes": [
-            "PR was merged"
-          ]
+          "includes": ["PR was merged"]
         }
       }
     }

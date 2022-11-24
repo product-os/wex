@@ -13,9 +13,7 @@
           }
         },
         "test": {
-          "includes": [
-            "Get expensive computation"
-          ]
+          "includes": ["Get expensive computation"]
         }
       }
     },
@@ -27,20 +25,16 @@
           "working_directory": "/tmp/docker-project"
         },
         "test": {
-          "excludes": [
-            "Log directory"
-          ]
+          "excludes": ["Log directory"]
         }
       }
     },
     {
       "it": "Checks that a MY_SECRET secret was set",
-      "secrets": "sample_secrets",
+      "secrets": "secrets",
       "push": {
         "test": {
-          "includes": [
-            "Secret [1-9]* set!"
-          ]
+          "includes": ["Secret [1-9]* set!"]
         }
       }
     }
