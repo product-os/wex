@@ -20,6 +20,7 @@ Mandatory arguments:
 Optional arguments:
   -h --help      Display this help information.
   -D --debug     Log additional information to see what Wex is doing.
+  -t --tests     Provide a pattern for tests to exclusively run.
   --version      Print version.
   --verbose      Make Workflow runner log more information.
   --logs         Print Workflow logs (Same logs you'd see on Github).
