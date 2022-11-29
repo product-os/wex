@@ -440,7 +440,8 @@ _wex() {
 
 _log() {
 	if ((_OPT_LOG_WORKFLOW)); then
-		tee /dev/tty
+		# Because of https://github.com/nektos/act/issues/657 filter out these warnings
+		grep -v -F 'unable to get git' | tee /dev/tty
 	fi
 	cat
 }
