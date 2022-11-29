@@ -400,7 +400,7 @@ _wex() {
 
 		# (5) call act
 		_debug printf "Calling act with '$event' event"
-		args="$event -W $tmp_directory --secret-file $tmp_directory/.secrets --env-file $tmp_directory/.env"
+		args="$event -W $tmp_directory --artifact-server-path $tmp_directory --secret-file $tmp_directory/.secrets --env-file $tmp_directory/.env"
 		if ((_OPT_VERBOSE)); then
 			# Tell act to run with verbose flag
 			args="$args -v"
