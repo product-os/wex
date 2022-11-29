@@ -515,6 +515,11 @@ _create_env_file() {
 		# remove quotes around strings
 		input_key=$(echo "$k" | tr -d '"')
 		input_value=$(_yq ".${input_key}" "$1" | tr -d '"')
+		# Check if input_value is probably a string
+		if ! [[ "$input_value" =~ ^[0-9]+|true|false$ ]]; then
+			# Add single quotes to var so it is parsed as a string
+			input_value="'\"$input_value\"'"
+		fi
 		echo "INPUT_$input_key=$input_value" >>"$2"
 	done
 }
