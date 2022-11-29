@@ -336,8 +336,6 @@ done
 trap _cleanup EXIT
 
 _cleanup() {
-	# Change back to previous location
-	popd &>/dev/null
 	# Cleanup tmp workflow if created
 	rm -r "$tmp_directory" 2>/dev/null
 }
@@ -347,12 +345,10 @@ original_directory=$(pwd)
 
 _wex() {
 	_debug printf "Wex trying \`${_OPT_WORKFLOW}\` with config \`${_OPT_CONFIG}\`"
+	total=0
 	fails=0
 	tmp_directory=$(_cp_workflow "$_OPT_WORKFLOW")
 	workflow_file=$(basename "$_OPT_WORKFLOW")
-	# Switch to this tmp directory
-	pushd "$tmp_directory" 1>/dev/null
-	total=0
 	# Loop over each experiment in config
 	while read -r experiment; do
 		title=$(_yq ".it" "$experiment")
@@ -365,10 +361,10 @@ _wex() {
 		event=$(_yq 'with_entries(select(.key != "it" and .key != "secrets")) | keys[]' "$experiment" | tr -d '"')
 
 		# (0) convert if given a reusable workflow
-		if _is_reusable_workflow "$workflow_file"; then
+		if _is_reusable_workflow "$tmp_directory/$workflow_file"; then
 			_debug printf "Detected that a reusable workflow was passed to $_NAME"
 			# update workflow_call event with test specified event
-			_convert_workflow "$workflow_file" "$event"
+			_convert_workflow "$tmp_directory/$workflow_file" "$event"
 			_debug printf "Normalized workflow to trigger on '$event' events"
 		fi
 
@@ -376,7 +372,7 @@ _wex() {
 		inputs=$(_yq ".$event.inputs" "$experiment")
 		if ! [[ $inputs = "null" ]]; then
 			_debug printf "Setting inputs from config"
-			_create_env_file "$inputs"
+			_create_env_file "$inputs" "$tmp_directory/.env"
 		fi
 
 		# (2) setup secrets
@@ -386,7 +382,7 @@ _wex() {
 				_exit_1 printf "Secrets file at $original_directory/$secrets does not exist"
 			fi
 			_debug printf "Setting secrets from config"
-			cp "$original_directory/$secrets" .secrets
+			cp "$original_directory/$secrets" "$tmp_directory/.secrets"
 		fi
 
 		# (3) setup webhook payload
@@ -396,7 +392,7 @@ _wex() {
 				_exit_1 printf "Webhook payload file at $original_directory/$payload does not exist"
 			fi
 			_debug printf "Setting webhook payload from config"
-			cp "$original_directory/$payload" webhook_payload.json
+			cp "$original_directory/$payload" "$tmp_directory/webhook_payload.json"
 		fi
 
 		# (4) modify workflow so that steps output values from config
@@ -404,14 +400,14 @@ _wex() {
 
 		# (5) call act
 		_debug printf "Calling act with '$event' event"
-		args="$event -W ."
+		args="$event -W $tmp_directory --secret-file $tmp_directory/.secrets --env-file $tmp_directory/.env"
 		if ((_OPT_VERBOSE)); then
 			# Tell act to run with verbose flag
 			args="$args -v"
 		fi
 		if ! [[ $payload = "null" ]]; then
 			# Tell act to use custom webhook payload
-			args="$args --eventpath webhook_payload.json"
+			args="$args --eventpath $tmp_directory/webhook_payload.json"
 		fi
 		_debug printf "Evaluating 'act $args'"
 		logs=$(eval act "$args" 2>&1 | _log)
@@ -519,7 +515,7 @@ _create_env_file() {
 		# remove quotes around strings
 		input_key=$(echo "$k" | tr -d '"')
 		input_value=$(_yq ".${input_key}" "$1" | tr -d '"')
-		echo "INPUT_$input_key=$input_value" >>".env"
+		echo "INPUT_$input_key=$input_value" >>"$2"
 	done
 }
 
@@ -529,6 +525,9 @@ _cp_workflow() {
 	# Copy provided workflow to tmp directory
 	_debug printf "Making a copy of %s in %s" "$1" "$workflow_directory"
 	cp "$1" "$workflow_directory"
+	# Create the files to avoid act complaining if provided config doesn't create them
+	touch "$workflow_directory/.secrets"
+	touch "$workflow_directory/.env"
 	echo "$workflow_directory"
 }
 
