@@ -512,13 +512,14 @@ _set_output() {
 _create_env_file() {
 	# store inputs to .env in KEY=VALUE format which automatically get sourced by act
 	_yq "keys[]" "$1" | while read -r k; do
-		# remove quotes around strings
+		# remove quotes around key
 		input_key=$(echo "$k" | tr -d '"')
-		input_value=$(_yq ".${input_key}" "$1" | tr -d '"')
+		# do not strip quotes since the value might actually be a string
+		input_value=$(_yq ".${input_key}" "$1")
 		# Check if input_value is probably a string
 		if ! [[ "$input_value" =~ ^[0-9]+|true|false$ ]]; then
 			# Add single quotes to var so it is parsed as a string
-			input_value="'\"$input_value\"'"
+			input_value="'$input_value'"
 		fi
 		echo "INPUT_$input_key=$input_value" >>"$2"
 	done
