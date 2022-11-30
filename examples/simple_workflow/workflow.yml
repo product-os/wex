@@ -12,7 +12,7 @@ jobs:
         run: |
           echo 'expensive-function'
       - name: Get expensive computation
-        if: steps.expensive-function.outputs.COMPUTED == '5'
+        if: steps.expensive-function.outputs.COMPUTED == '5' && steps.expensive-function.outputs.another == 'thing'
         run: echo "The output is ${{ steps.expensive-function.outputs.COMPUTED }}"
       - name: Log directory
         if: inputs.logDirectory == true

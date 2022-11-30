@@ -496,7 +496,7 @@ _mod_step_run() {
 
 _set_output() {
 	key="$1"
-	value=$(echo "$2" | tr -d '"') # escape quotes around strings
+	value="$(echo "$2" | sed -e 's/^"//' -e 's/"$//')"
 	# shellcheck disable=SC2016
 	printf 'echo %s=%s >> $GITHUB_OUTPUT' "$key" "$value"
 }
