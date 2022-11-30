@@ -386,7 +386,7 @@ _wex() {
 		fi
 
 		# (3) modify workflow so that steps output values from config
-		_mod_step_run "$workflow_file" "$(_yq ".$event.outputs" "$experiment")"
+		_mod_step_run "$tmp_directory/$workflow_file" "$(_yq ".$event.outputs" "$experiment")"
 
 		# (4) call act
 		_debug printf "Calling act with '$event' event"
