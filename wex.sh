@@ -385,35 +385,26 @@ _wex() {
 			cp "$original_directory/$secrets" "$tmp_directory/.secrets"
 		fi
 
-		# (3) setup webhook payload
-		payload=$(_yq ".$event.event" "$experiment" | tr -d '"')
-		if ! [[ $payload = "null" ]]; then
-			if [[ ! -f $original_directory/$payload ]]; then
-				_exit_1 printf "Webhook payload file at $original_directory/$payload does not exist"
-			fi
-			_debug printf "Setting webhook payload from config"
-			cp "$original_directory/$payload" "$tmp_directory/webhook_payload.json"
-		fi
-
-		# (4) modify workflow so that steps output values from config
+		# (3) modify workflow so that steps output values from config
 		_mod_step_run "$workflow_file" "$(_yq ".$event.outputs" "$experiment")"
 
-		# (5) call act
+		# (4) call act
 		_debug printf "Calling act with '$event' event"
 		args="$event -W $tmp_directory --artifact-server-path $tmp_directory --secret-file $tmp_directory/.secrets --env-file $tmp_directory/.env"
 		if ((_OPT_VERBOSE)); then
 			# Tell act to run with verbose flag
 			args="$args -v"
 		fi
+		payload=$(_yq ".$event.event" "$experiment" | tr -d '"')
 		if ! [[ $payload = "null" ]]; then
 			# Tell act to use custom webhook payload
-			args="$args --eventpath $tmp_directory/webhook_payload.json"
+			args="$args --eventpath $original_directory/$payload"
 		fi
 		_debug printf "Evaluating 'act $args'"
 		logs=$(eval act "$args" 2>&1 | _log)
 		_debug printf "Act finished running"
 
-		# (6) test logs for expected text
+		# (5) test logs for expected text
 		tests="$(_yq ".$event.test" "$experiment")"
 		if ! _test_logs "$logs" "$tests"; then
 			echo "$title - ⚠ FAILED"
