@@ -497,7 +497,8 @@ _mod_step_run() {
 _set_output() {
 	key="$1"
 	value=$(echo "$2" | tr -d '"') # escape quotes around strings
-	printf "echo ::set-output name=%s::%s" "$key" "$value"
+	# shellcheck disable=SC2016
+	printf 'echo %s=%s >> $GITHUB_OUTPUT' "$key" "$value"
 }
 
 _create_env_file() {
