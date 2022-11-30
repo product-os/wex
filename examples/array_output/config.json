@@ -1,0 +1,17 @@
+{
+  "experiments": [
+    {
+      "it": "Checks if matrix passes Python 3.9",
+      "push": {
+        "outputs": {
+          "python_versions": {
+            "json": "[\\\"3.9\\\"]"
+          }
+        },
+        "test": {
+          "includes": ["Matrix passed python version 3.9"]
+        }
+      }
+    }
+  ]
+}
